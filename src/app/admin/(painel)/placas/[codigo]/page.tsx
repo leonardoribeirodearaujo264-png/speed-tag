@@ -12,6 +12,7 @@ import { exigirAdmin } from "@/lib/auth";
 import { buscarPlacaPorCodigo } from "@/lib/placas/consultas";
 import { gerarQrSvg, svgParaDataUri } from "@/lib/placas/qr";
 import { montarSerie } from "@/lib/placas/estatisticas";
+import { MODELOS_ARTE, NOMES_MODELOS, modeloArte } from "@/lib/placas/modelos-arte";
 import { formatarData } from "@/lib/placas/rotulos";
 import { urlNfc, urlQr } from "@/lib/placas/urls";
 import { ROTA_PREPARO_NFC } from "@/lib/placas/preparo-nfc";
@@ -98,7 +99,8 @@ export default async function DetalhePlaca({ params, searchParams }: PageProps<"
   const placa = busca.dado;
   if (placa.codigo !== codigoBruto) redirect(`/admin/placas/${placa.codigo}`);
 
-  const { criada } = await searchParams;
+  const { criada, modelo: modeloBruto } = await searchParams;
+  const modelo = modeloArte(modeloBruto);
   const [qrSvg, lote, empresa, dono, historico, leituras, recentes, lotes] = await Promise.all([
     gerarQrSvg(urlQr(placa.codigo)),
     placa.lote_id
@@ -152,13 +154,31 @@ export default async function DetalhePlaca({ params, searchParams }: PageProps<"
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
         <div className="flex flex-col gap-6">
           <Painel>
-            <TituloPainel titulo="Arte da placa" descricao="PNG em 2000 × 2000 px; PDF pela folha de impressão." />
+            <TituloPainel
+              titulo="Arte da placa"
+              descricao="PNG em 2000 × 2000 px; PDF pela folha de impressão."
+              acao={
+                <div className="flex gap-1 rounded-xl bg-slate-100 p-1" role="group" aria-label="Modelo da arte">
+                  {NOMES_MODELOS.map((m) => (
+                    <Link
+                      key={m}
+                      href={`/admin/placas/${placa.codigo}?modelo=${m}`}
+                      scroll={false}
+                      aria-current={m === modelo ? "true" : undefined}
+                      className={`rounded-lg px-3 py-1 text-sm font-medium ${m === modelo ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-800"}`}
+                    >
+                      {MODELOS_ARTE[m].rotulo}
+                    </Link>
+                  ))}
+                </div>
+              }
+            />
             <div className="flex flex-col items-center gap-5 px-5 pb-6 sm:px-6">
               <div className="w-full max-w-[340px] overflow-hidden rounded-2xl shadow-xl ring-1 ring-black/5">
-                <ArtePlaca codigo={placa.codigo} qrDataUri={qrDataUri} tamanho={340} />
+                <ArtePlaca codigo={placa.codigo} qrDataUri={qrDataUri} tamanho={340} modelo={modelo} />
               </div>
               <div className="flex flex-wrap justify-center gap-2">
-                <a href={`${base}/arte?baixar=1`} className={buttonVariants({ variant: "outline" })}>
+                <a href={`${base}/arte?baixar=1&modelo=${modelo}`} className={buttonVariants({ variant: "outline" })}>
                   <Download aria-hidden /> Arte PNG
                 </a>
                 <a href={`${base}/qr?formato=svg&baixar=1`} className={buttonVariants({ variant: "outline" })}>
@@ -167,7 +187,7 @@ export default async function DetalhePlaca({ params, searchParams }: PageProps<"
                 <a href={`${base}/qr?formato=png&tamanho=1024&baixar=1`} className={buttonVariants({ variant: "outline" })}>
                   <Download aria-hidden /> QR PNG
                 </a>
-                <Link href={`/admin/impressao?codigo=${placa.codigo}`} className={buttonVariants({ variant: "outline" })}>
+                <Link href={`/admin/impressao?codigo=${placa.codigo}&modelo=${modelo}`} className={buttonVariants({ variant: "outline" })}>
                   <Printer aria-hidden /> Imprimir / PDF
                 </Link>
               </div>

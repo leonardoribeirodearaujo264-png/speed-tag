@@ -5,13 +5,13 @@ import { ArtePlaca } from "@/components/placa/arte-placa";
 import { buttonVariants } from "@/components/ui/button";
 import { exigirAdmin } from "@/lib/auth";
 import { buscarPlacaPorCodigo, listarCodigosDoLote } from "@/lib/placas/consultas";
+import { MODELOS_ARTE, NOMES_MODELOS, modeloArte } from "@/lib/placas/modelos-arte";
 import { gerarQrSvg, svgParaDataUri } from "@/lib/placas/qr";
 import { urlQr } from "@/lib/placas/urls";
 import { BotaoImprimir } from "./botao-imprimir";
 
 // Painel com login: navegação espera o servidor (sessão lida a cada requisição).
 export const instant = false;
-
 
 export const metadata = { title: "Folha de impressão" };
 
@@ -26,6 +26,7 @@ const esquema = z.object({
   codigo: z.string().max(12).optional().catch(undefined),
   cm: z.coerce.number().pipe(z.union(LADOS_CM.map((v) => z.literal(v)))).default(8).catch(8),
   pagina: z.coerce.number().int().min(1).default(1).catch(1),
+  modelo: z.unknown().transform(modeloArte),
 });
 
 export default async function Impressao({ searchParams }: PageProps<"/admin/impressao">) {
@@ -76,7 +77,18 @@ export default async function Impressao({ searchParams }: PageProps<"/admin/impr
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <span className="text-sm text-muted-foreground">Lado:</span>
+          <span className="text-sm text-muted-foreground">Arte:</span>
+          {NOMES_MODELOS.map((modelo) => (
+            <Link
+              key={modelo}
+              href={link({ modelo })}
+              aria-current={modelo === f.modelo ? "true" : undefined}
+              className={buttonVariants({ variant: modelo === f.modelo ? "secondary" : "ghost", size: "sm" })}
+            >
+              {MODELOS_ARTE[modelo].rotulo}
+            </Link>
+          ))}
+          <span className="ml-2 text-sm text-muted-foreground">Lado:</span>
           {LADOS_CM.map((cm) => (
             <Link
               key={cm}
@@ -99,7 +111,7 @@ export default async function Impressao({ searchParams }: PageProps<"/admin/impr
       <div className="flex flex-wrap gap-[4mm] bg-white p-4 print:p-0">
         {artes.map(({ codigo, qr }) => (
           <div key={codigo} className="break-inside-avoid border border-dashed border-slate-300 p-[2mm]">
-            <ArtePlaca codigo={codigo} qrDataUri={qr} tamanho={ladoPx} />
+            <ArtePlaca codigo={codigo} qrDataUri={qr} tamanho={ladoPx} modelo={f.modelo} />
           </div>
         ))}
       </div>

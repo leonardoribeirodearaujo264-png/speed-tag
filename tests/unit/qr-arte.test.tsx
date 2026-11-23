@@ -4,6 +4,8 @@ import { join } from "node:path";
 import QRCode from "qrcode";
 import { describe, expect, it } from "vitest";
 import { ArtePlaca } from "@/components/placa/arte-placa";
+import { fundoArteDataUri } from "@/lib/placas/fundo-arte";
+import { NOMES_MODELOS } from "@/lib/placas/modelos-arte";
 import { gerarQrPng, gerarQrSvg, svgParaDataUri } from "@/lib/placas/qr";
 import { urlNfc, urlQr } from "@/lib/placas/urls";
 
@@ -39,10 +41,12 @@ describe("QR", () => {
 });
 
 describe("arte da placa no Satori (PNG)", () => {
-  it("renderiza sem erro de layout e gera PNG do tamanho pedido", async () => {
+  it.each(NOMES_MODELOS)("modelo %s: renderiza com a arte do cliente e gera PNG do tamanho pedido", async (modelo) => {
     const { ImageResponse } = await import("next/og");
     const qr = svgParaDataUri(await gerarQrSvg(urlQr("A1B2C3", BASE)));
-    const resposta = new ImageResponse(<ArtePlaca codigo="A1B2C3" qrDataUri={qr} tamanho={1000} />, {
+    const fundo = await fundoArteDataUri(modelo);
+    expect(fundo.startsWith("data:image/jpeg;base64,")).toBe(true);
+    const resposta = new ImageResponse(<ArtePlaca codigo="A1B2C3" qrDataUri={qr} tamanho={1000} modelo={modelo} fundo={fundo} />, {
       width: 1000,
       height: 1000,
     });
@@ -52,6 +56,6 @@ describe("arte da placa no Satori (PNG)", () => {
     // Guarda a prévia para conferência visual.
     const pasta = join(tmpdir(), "placa-avaliacao");
     mkdirSync(pasta, { recursive: true });
-    writeFileSync(join(pasta, "arte-A1B2C3.png"), png);
+    writeFileSync(join(pasta, `arte-A1B2C3-${modelo}.png`), png);
   }, 30_000);
 });
