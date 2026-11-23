@@ -1,28 +1,25 @@
 "use client";
 
-import { useActionState } from "react";
-import { Mail, MailCheck } from "lucide-react";
+import { useActionState, useState } from "react";
+import { Mail } from "lucide-react";
 import { BotaoPrincipal, CampoTexto, MensagemErro } from "@/components/auth/campos";
-import { enviarLinkMagico, type EstadoEntrar } from "./acoes";
+import { FormCodigoEmail } from "@/components/auth/form-codigo-email";
+import { Button } from "@/components/ui/button";
+import { entrarComCodigo, enviarLinkMagico, type EstadoEntrar } from "./acoes";
 
-export function FormEntrar({ proximo }: { proximo: string }) {
+function Solicitacao({ proximo, reiniciar }: { proximo: string; reiniciar: () => void }) {
   const [estado, acao, enviando] = useActionState<EstadoEntrar, FormData>(enviarLinkMagico, {
     tipo: "inicial",
   });
 
   if (estado.tipo === "enviado") {
     return (
-      <div className="flex flex-col items-center gap-4 rounded-2xl border border-slate-200 bg-slate-50/60 p-8 text-center animate-in fade-in zoom-in-95" role="status">
-        <span className="flex size-14 items-center justify-center rounded-2xl bg-marca-claro ring-1 ring-marca-borda">
-          <MailCheck className="size-7 text-marca-texto" aria-hidden />
-        </span>
-        <div>
-          <p className="text-lg font-semibold text-slate-900">Link enviado</p>
-          <p className="mt-1 text-sm leading-relaxed text-slate-500">
-            Abra o e-mail enviado para <span className="font-medium text-slate-700">{estado.email}</span> neste aparelho e
-            toque no link. Ele vale por 1 hora.
-          </p>
-        </div>
+      <div className="space-y-4">
+        <p role="status" className="rounded-xl bg-marca-claro p-3 text-sm text-marca-texto">
+          Confira a caixa de entrada e o spam de <strong className="break-all">{estado.email}</strong>. Se usar o link, abra-o neste mesmo navegador.
+        </p>
+        <FormCodigoEmail acao={entrarComCodigo.bind(null, proximo, estado.email)} rotulo="Entrar com código" />
+        <Button type="button" variant="link" onClick={reiniciar}>Corrigir e-mail ou solicitar outro código</Button>
       </div>
     );
   }
@@ -42,7 +39,12 @@ export function FormEntrar({ proximo }: { proximo: string }) {
         aria-invalid={estado.tipo === "erro"}
       />
       {estado.tipo === "erro" && <MensagemErro>{estado.mensagem}</MensagemErro>}
-      <BotaoPrincipal carregando={enviando}>{enviando ? "Enviando..." : "Receber link de acesso"}</BotaoPrincipal>
+      <BotaoPrincipal carregando={enviando}>{enviando ? "Enviando..." : "Receber e-mail de acesso"}</BotaoPrincipal>
     </form>
   );
+}
+
+export function FormEntrar({ proximo }: { proximo: string }) {
+  const [tentativa, setTentativa] = useState(0);
+  return <Solicitacao key={tentativa} proximo={proximo} reiniciar={() => setTentativa((valor) => valor + 1)} />;
 }

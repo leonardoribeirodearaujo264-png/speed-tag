@@ -19,7 +19,7 @@ async function Conteudo({ searchParams }: { searchParams: PageProps<"/recuperar-
 }
 
 export default function RecuperarSenha({ searchParams }: PageProps<"/recuperar-senha">) {
-  return <LayoutAutenticacao titulo="Recuperar senha" subtitulo="Receba um link para definir uma nova senha.">
+  return <LayoutAutenticacao titulo="Recuperar senha" subtitulo="Receba um código ou link para definir uma nova senha.">
     <Suspense fallback={<p>Carregando...</p>}><Conteudo searchParams={searchParams} /></Suspense>
   </LayoutAutenticacao>;
 }
