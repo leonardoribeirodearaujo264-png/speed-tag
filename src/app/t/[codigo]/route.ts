@@ -58,14 +58,11 @@ export async function GET(request: NextRequest, ctx: RouteContext<"/t/[codigo]">
     return NextResponse.redirect(placa.destino_url, { status: 302, headers: semCache });
   }
 
-  // Placa atribuída ou tag preparada ainda não ativada vai direto para a ativação (sem passar por /placa).
-  if (placa.situacao !== "desativada" && placa.situacao !== "ativa") {
-    const { data: extra } = await supabase.from("placas").select("preparada_nfc").eq("id", placa.id).maybeSingle();
-    if (placa.situacao === "atribuida" || extra?.preparada_nfc) {
-      const resposta = NextResponse.redirect(new URL(`/ativar/${placa.codigo}`, request.url), 302);
-      resposta.headers.set("Cache-Control", "no-store");
-      return resposta;
-    }
+  // Placa criada (em estoque) ou atribuída vai direto para a ativação, como no fluxo de referência.
+  if (placa.situacao === "disponivel" || placa.situacao === "atribuida") {
+    const resposta = NextResponse.redirect(new URL(`/ativar/${placa.codigo}`, request.url), 302);
+    resposta.headers.set("Cache-Control", "no-store");
+    return resposta;
   }
 
   return paginaDaPlaca(placa.codigo);

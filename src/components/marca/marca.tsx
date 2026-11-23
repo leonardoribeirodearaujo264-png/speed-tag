@@ -5,7 +5,8 @@ import { cn } from "cn";
  * Identidade Speed Tag (versão azul). Logo e símbolo são PNG transparentes recortados por scripts/recortar-logo.py
  * da arte original (fundo azul-marinho removido), para fundo escuro; em fundo claro o S
  * vai num selo azul-marinho. Arquivos: public/marca/speedtag.png (1098x299) e
- * speedtag-simbolo.png (512x512, sem a barra diagonal).
+ * speedtag-simbolo.png (512x512, sem a barra diagonal). Servidos sem otimização (unoptimized):
+ * a conversão para WebP do Next criava um retângulo escuro na transparência.
  */
 export function LogoCompleta({ className, prioridade = false }: { className?: string; prioridade?: boolean }) {
   return (
@@ -15,6 +16,7 @@ export function LogoCompleta({ className, prioridade = false }: { className?: st
       width={1098}
       height={299}
       priority={prioridade}
+      unoptimized
       className={cn("h-9 w-auto select-none", className)}
     />
   );
@@ -26,7 +28,7 @@ export function SimboloS({ tamanho = 36, className }: { tamanho?: number; classN
       className={cn("inline-flex shrink-0 overflow-hidden rounded-xl bg-marca-fundo ring-1 ring-black/10", className)}
       style={{ width: tamanho, height: tamanho }}
     >
-      <Image src="/marca/speedtag-simbolo.png" alt="" width={512} height={512} className="size-full select-none" />
+      <Image src="/marca/speedtag-simbolo.png" alt="" width={512} height={512} unoptimized className="size-full select-none" />
     </span>
   );
 }

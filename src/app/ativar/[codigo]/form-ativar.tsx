@@ -1,43 +1,114 @@
 "use client";
 
-import { useState, useTransition, type FormEvent } from "react";
-import { useRouter } from "next/navigation";
-import { ArrowLeft, CheckCircle2, Lock, Mail, MapPin, Phone, Search, Star, User, Zap } from "lucide-react";
-import { BotaoPrincipal, CampoSenha, CampoTexto, MensagemErro } from "@/components/auth/campos";
+import { useEffect, useState, useTransition, type FormEvent } from "react";
+import { ArrowLeft, Check, CheckCircle2, ChevronRight, Lightbulb, Link2, Loader2, Mail, MapPin, Search, Star, Zap } from "lucide-react";
 import type { DetalhesEmpresa, EmpresaEncontrada } from "@/lib/google/places";
-import {
-  ativarComGoogle,
-  ativarComLink,
-  criarContaCliente,
-  entrarComSenha,
-  identificarEmail,
-  pesquisarEmpresa,
-  verDetalhesEmpresa,
-} from "./acoes";
+import { ativarComGoogle, ativarComLink, pesquisarEmpresa, verDetalhesEmpresa, type ResultadoAtivacao } from "./acoes";
 
-type Etapa = "email" | "senha" | "cadastro" | "empresa" | "confirmar" | "manual" | "ativada";
+type Escolha = { tipo: "google"; empresa: DetalhesEmpresa } | { tipo: "manual"; nome: string; link: string };
+type Etapa = "empresa" | "manual" | "quase" | "sucesso";
 
-const classeBusca =
-  "h-12 w-full rounded-xl border border-slate-200 bg-slate-50/60 pr-12 pl-4 text-base outline-none focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-500/10";
+const campo =
+  "h-12 w-full rounded-xl border border-slate-200 bg-slate-50/60 px-4 text-base text-slate-900 outline-none transition placeholder:text-slate-400 hover:border-slate-300 focus:border-marca focus:bg-white focus:ring-4 focus:ring-marca/15";
 
-function Estrelas({ nota }: { nota: number }) {
+function Estrelas({ nota, total }: { nota: number; total?: number }) {
   return (
-    <span className="flex items-center gap-0.5" aria-label={`Nota ${nota.toFixed(1)}`}>
-      {[1, 2, 3, 4, 5].map((i) => (
-        <Star key={i} className={`size-4 ${i <= Math.round(nota) ? "fill-amber-400 text-amber-400" : "text-slate-300"}`} aria-hidden />
-      ))}
-      <span className="ml-1 text-sm font-medium text-slate-700">{nota.toFixed(1)}</span>
+    <span className="flex items-center gap-1 text-sm text-slate-600" aria-label={`Nota ${nota.toFixed(1)}`}>
+      <span className="flex">
+        {[1, 2, 3, 4, 5].map((i) => (
+          <Star key={i} className={`size-4 ${i <= Math.round(nota) ? "fill-amber-400 text-amber-400" : "text-slate-300"}`} aria-hidden />
+        ))}
+      </span>
+      <span className="font-medium text-slate-800">{nota.toFixed(1)}</span>
+      {typeof total === "number" && <span>({total.toLocaleString("pt-BR")})</span>}
     </span>
   );
 }
 
-export function FormAtivar({ codigo, logado }: { codigo: string; logado: boolean }) {
-  const router = useRouter();
-  const [etapa, setEtapa] = useState<Etapa>(logado ? "empresa" : "email");
-  const [email, setEmail] = useState("");
+function BotaoAzul({ carregando, disabled, children, ...props }: React.ComponentProps<"button"> & { carregando?: boolean }) {
+  return (
+    <button
+      {...props}
+      disabled={carregando || disabled}
+      className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-marca to-[#1a8cff] text-[15px] font-semibold text-white shadow-lg shadow-marca/30 transition hover:brightness-110 active:scale-[0.99] disabled:cursor-not-allowed disabled:from-slate-200 disabled:to-slate-200 disabled:text-slate-400 disabled:shadow-none"
+    >
+      {carregando ? <Loader2 className="size-4 animate-spin" aria-hidden /> : null}
+      {children}
+    </button>
+  );
+}
+
+const ETAPAS = ["Empresa", "E-mail", "Pronto"] as const;
+
+function Progresso({ atual }: { atual: number }) {
+  return (
+    <ol className="mb-6 flex items-center gap-2" aria-label={`Etapa ${Math.min(atual + 1, ETAPAS.length)} de ${ETAPAS.length}`}>
+      {ETAPAS.map((rotulo, i) => (
+        <li key={rotulo} className="flex flex-1 items-center gap-2">
+          <span
+            className={`flex size-6 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold transition ${
+              i < atual ? "bg-emerald-500 text-white" : i === atual ? "bg-marca text-white ring-4 ring-marca/15" : "bg-slate-100 text-slate-400"
+            }`}
+          >
+            {i < atual ? <Check className="size-3.5" aria-hidden /> : i + 1}
+          </span>
+          <span className={`text-xs font-medium ${i === atual ? "text-slate-900" : "text-slate-400"}`}>{rotulo}</span>
+          {i < ETAPAS.length - 1 && <span className={`h-px flex-1 ${i < atual ? "bg-emerald-300" : "bg-slate-200"}`} />}
+        </li>
+      ))}
+    </ol>
+  );
+}
+
+function Erro({ texto }: { texto: string }) {
+  return texto ? <p role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{texto}</p> : null;
+}
+
+/** Tela verde de sucesso, depois a mensagem sobre o acesso por e-mail (como no vídeo de referência). */
+function Sucesso({ codigo, emailEnviado, email }: { codigo: string; emailEnviado: boolean; email: string }) {
+  const [verde, setVerde] = useState(true);
+  useEffect(() => {
+    const t = setTimeout(() => setVerde(false), 2600);
+    return () => clearTimeout(t);
+  }, []);
+
+  if (verde) {
+    return (
+      <div role="status" className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-5 bg-[#22c55e] px-8 text-center animate-in fade-in">
+        <CheckCircle2 className="size-20 text-white" strokeWidth={1.5} aria-hidden />
+        <p className="text-3xl leading-tight font-bold text-white">Produto ativado com sucesso!</p>
+      </div>
+    );
+  }
+  return (
+    <div className="flex flex-col items-center gap-4 text-center animate-in fade-in" role="status">
+      <span className="flex size-16 items-center justify-center rounded-full bg-emerald-50 ring-1 ring-emerald-200">
+        <CheckCircle2 className="size-9 text-emerald-600" aria-hidden />
+      </span>
+      <p className="text-xl font-semibold tracking-tight text-slate-900">Placa ativada!</p>
+      <p className="text-sm leading-relaxed text-slate-500">
+        A partir de agora, quem aproximar o celular ou ler o QR Code vai direto para a avaliação no Google.
+      </p>
+      <p className="rounded-xl bg-marca-claro px-4 py-3 text-sm leading-relaxed text-marca-texto ring-1 ring-marca-borda">
+        {emailEnviado
+          ? <>Enviamos para <strong>{email}</strong> o link para acessar nossa plataforma e gerenciar seus produtos.</>
+          : <>Para acessar nossa plataforma e gerenciar seus produtos, entre com o e-mail <strong>{email}</strong> na área do cliente.</>}
+      </p>
+      <a href={`/t/${codigo}`} className="flex h-12 w-full items-center justify-center rounded-xl bg-gradient-to-r from-marca to-[#1a8cff] font-semibold text-white shadow-lg shadow-marca/30">
+        Testar agora
+      </a>
+    </div>
+  );
+}
+
+export function FormAtivar({ codigo }: { codigo: string }) {
+  const [etapa, setEtapa] = useState<Etapa>("empresa");
   const [consulta, setConsulta] = useState("");
   const [empresas, setEmpresas] = useState<EmpresaEncontrada[] | null>(null);
-  const [empresa, setEmpresa] = useState<DetalhesEmpresa | null>(null);
+  const [escolha, setEscolha] = useState<Escolha | null>(null);
+  const [email, setEmail] = useState("");
+  const [emailEnviado, setEmailEnviado] = useState(false);
+  const [ajuda, setAjuda] = useState(false);
   const [erro, setErro] = useState("");
   const [ocupado, iniciar] = useTransition();
 
@@ -52,183 +123,193 @@ export function FormAtivar({ codigo, logado }: { codigo: string; logado: boolean
     });
   }
 
-  const enviar = (evento: FormEvent<HTMLFormElement>, tarefa: (dados: FormData) => Promise<void>) => {
+  function buscar(evento: FormEvent) {
     evento.preventDefault();
-    const dados = new FormData(evento.currentTarget);
-    executar(() => tarefa(dados));
-  };
-
-  const voltar = (para: Etapa) => (
-    <button type="button" onClick={() => { setErro(""); setEtapa(para); }} className="mb-4 inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-800">
-      <ArrowLeft className="size-4" aria-hidden /> Voltar
-    </button>
-  );
-
-  const aviso = erro && <MensagemErro>{erro}</MensagemErro>;
-
-  if (etapa === "email") {
-    return (
-      <form className="flex flex-col gap-5" noValidate onSubmit={(e) => enviar(e, async (d) => {
-        const valor = String(d.get("email") ?? "").trim().toLowerCase();
-        const r = await identificarEmail(valor);
-        if ("erro" in r) return setErro(r.erro);
-        setEmail(valor);
-        setEtapa(r.tipo === "entrar" ? "senha" : "cadastro");
-      })}>
-        <p className="text-sm text-slate-500">Primeiro, seu e-mail. Se ainda não tiver conta, você cria em seguida.</p>
-        <CampoTexto id="email" rotulo="Seu e-mail" icone={Mail} type="email" inputMode="email" autoComplete="email" required placeholder="voce@empresa.com" defaultValue={email} />
-        {aviso}
-        <BotaoPrincipal carregando={ocupado}>Continuar</BotaoPrincipal>
-      </form>
-    );
+    executar(async () => {
+      setEmpresas(null);
+      const r = await pesquisarEmpresa(codigo, consulta);
+      if ("erro" in r) return setErro(r.erro);
+      setEmpresas(r.empresas);
+    });
   }
 
-  if (etapa === "senha") {
-    return (
-      <form className="flex flex-col gap-5" noValidate onSubmit={(e) => enviar(e, async (d) => {
-        const r = await entrarComSenha(email, String(d.get("senha") ?? ""));
-        if ("erro" in r) return setErro(r.erro);
-        setEtapa("empresa");
-        router.refresh();
-      })}>
-        <div>{voltar("email")}<p className="text-sm text-slate-500">Bem-vindo de volta, <strong className="text-slate-800">{email}</strong>.</p></div>
-        <CampoSenha id="senha" rotulo="Senha" icone={Lock} autoComplete="current-password" required placeholder="Sua senha" />
-        {aviso}
-        <BotaoPrincipal carregando={ocupado}>Entrar e ativar</BotaoPrincipal>
-      </form>
-    );
+  function concluir(r: ResultadoAtivacao) {
+    if ("erro" in r) return setErro(r.erro);
+    setEmailEnviado(r.emailEnviado);
+    setEtapa("sucesso");
   }
 
-  if (etapa === "cadastro") {
-    return (
-      <form className="flex flex-col gap-5" noValidate onSubmit={(e) => enviar(e, async (d) => {
-        const r = await criarContaCliente({
-          nome: String(d.get("nome") ?? ""),
-          email,
-          telefone: String(d.get("telefone") ?? ""),
-          senha: String(d.get("senha") ?? ""),
-        });
-        if ("erro" in r) return setErro(r.erro);
-        setEtapa("empresa");
-        router.refresh();
-      })}>
-        <div>{voltar("email")}<p className="text-sm text-slate-500">Criar conta com <strong className="text-slate-800">{email}</strong>.</p></div>
-        <CampoTexto id="nome" rotulo="Seu nome" icone={User} autoComplete="name" required placeholder="Nome completo" />
-        <CampoTexto id="telefone" rotulo="Telefone (opcional)" icone={Phone} type="tel" inputMode="tel" autoComplete="tel" placeholder="(11) 99999-9999" />
-        <CampoSenha id="senha" rotulo="Crie uma senha" icone={Lock} autoComplete="new-password" required placeholder="Mínimo de 10 caracteres" medidor />
-        {aviso}
-        <BotaoPrincipal carregando={ocupado}>Criar conta e continuar</BotaoPrincipal>
-      </form>
-    );
-  }
+  if (etapa === "sucesso") return <Sucesso codigo={codigo} emailEnviado={emailEnviado} email={email} />;
 
-  if (etapa === "confirmar" && empresa) {
+  if (etapa === "quase" && escolha) {
     return (
-      <div className="flex flex-col gap-5">
-        {voltar("empresa")}
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <p className="text-center text-lg font-semibold text-blue-700">Confirmar</p>
-          <p className="text-center text-sm text-slate-500">Esse é o Google correto para ativação?</p>
-          <div className="mt-4 space-y-2 text-sm text-slate-700">
-            <p className="text-base font-semibold text-slate-900">{empresa.nome}</p>
-            {typeof empresa.totalAvaliacoes === "number" && <p>Total de avaliações: {empresa.totalAvaliacoes.toLocaleString("pt-BR")}</p>}
-            {typeof empresa.nota === "number" && <Estrelas nota={empresa.nota} />}
-            {empresa.endereco && <p className="flex gap-2"><MapPin className="mt-0.5 size-4 shrink-0 text-slate-400" aria-hidden />{empresa.endereco}</p>}
-            {empresa.telefone && <p className="flex gap-2"><Phone className="mt-0.5 size-4 shrink-0 text-slate-400" aria-hidden />{empresa.telefone}</p>}
-          </div>
+      <form
+        noValidate
+        className="flex flex-col gap-5"
+        onSubmit={(e) => {
+          e.preventDefault();
+          executar(async () =>
+            concluir(
+              escolha.tipo === "google"
+                ? await ativarComGoogle(codigo, email, escolha.empresa.id, escolha.empresa.nome)
+                : await ativarComLink(codigo, email, escolha.nome, escolha.link),
+            ),
+          );
+        }}
+      >
+        <Progresso atual={1} />
+        <button type="button" onClick={() => { setErro(""); setEtapa(escolha.tipo === "google" ? "empresa" : "manual"); }} className="inline-flex w-fit items-center gap-1.5 text-sm text-slate-500 hover:text-slate-800">
+          <ArrowLeft className="size-4" aria-hidden /> Voltar
+        </button>
+        <div className="text-center">
+          <p className="text-2xl font-semibold tracking-tight text-slate-900">Quase lá!</p>
+          <p className="mt-1 text-sm text-slate-500">Informe seu e-mail para concluir a ativação.</p>
         </div>
-        {aviso}
-        <BotaoPrincipal type="button" carregando={ocupado} onClick={() => executar(async () => {
-          const r = await ativarComGoogle(codigo, empresa.id, empresa.nome);
-          if ("erro" in r) return setErro(r.erro);
-          setEtapa("ativada");
-        })}>
-          <Zap className="size-4" aria-hidden /> Ativar produto agora
-        </BotaoPrincipal>
-      </div>
+        <label className="flex flex-col gap-2 text-sm font-medium text-slate-700">
+          E-mail
+          <span className="relative">
+            <Mail className="pointer-events-none absolute top-1/2 left-4 size-4 -translate-y-1/2 text-slate-400" aria-hidden />
+            <input type="email" inputMode="email" autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="seu@email.com" className={`${campo} pl-11`} />
+          </span>
+        </label>
+
+        <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4">
+          {escolha.tipo === "google" ? (
+            <div className="space-y-1.5">
+              <p className="font-semibold text-slate-900">{escolha.empresa.nome}</p>
+              {typeof escolha.empresa.nota === "number" && <Estrelas nota={escolha.empresa.nota} total={escolha.empresa.totalAvaliacoes} />}
+              {escolha.empresa.endereco && (
+                <p className="flex gap-1.5 text-sm text-slate-500"><MapPin className="mt-0.5 size-4 shrink-0" aria-hidden />{escolha.empresa.endereco}</p>
+              )}
+            </div>
+          ) : (
+            <div className="space-y-1.5">
+              <p className="font-semibold text-slate-900">{escolha.nome}</p>
+              <p className="flex gap-1.5 text-sm break-all text-slate-500"><Link2 className="mt-0.5 size-4 shrink-0" aria-hidden />{escolha.link}</p>
+            </div>
+          )}
+        </div>
+
+        <Erro texto={erro} />
+        <BotaoAzul type="submit" carregando={ocupado} disabled={!email.trim()}>
+          <Zap className="size-4" aria-hidden /> Ativar produto
+        </BotaoAzul>
+      </form>
     );
   }
 
   if (etapa === "manual") {
     return (
-      <form className="flex flex-col gap-5" noValidate onSubmit={(e) => enviar(e, async (d) => {
-        const r = await ativarComLink(codigo, String(d.get("nome") ?? ""), String(d.get("link") ?? ""));
-        if ("erro" in r) return setErro(r.erro);
-        setEtapa("ativada");
-      })}>
+      <form
+        noValidate
+        className="flex flex-col gap-5"
+        onSubmit={(e) => {
+          e.preventDefault();
+          const dados = new FormData(e.currentTarget);
+          setErro("");
+          setEscolha({ tipo: "manual", nome: String(dados.get("nome") ?? "").trim(), link: String(dados.get("link") ?? "").trim() });
+          setEtapa("quase");
+        }}
+      >
+        <Progresso atual={0} />
+        <button type="button" onClick={() => { setErro(""); setEtapa("empresa"); }} className="inline-flex w-fit items-center gap-1.5 text-sm text-slate-500 hover:text-slate-800">
+          <ArrowLeft className="size-4" aria-hidden /> Voltar para a busca
+        </button>
         <div>
-          {voltar("empresa")}
-          <p className="font-semibold text-slate-900">Não encontrou seu negócio?</p>
-          <p className="text-sm text-slate-500">Preencha com o nome da empresa e o link de avaliação copiado do Google Maps (Compartilhar, Copiar link).</p>
+          <p className="text-xl font-semibold tracking-tight text-slate-900">Não encontrou seu negócio?</p>
+          <p className="mt-1 text-sm text-slate-500">Preencha com o nome da empresa e o link de avaliação.</p>
         </div>
-        <CampoTexto id="nome" rotulo="Nome da empresa" icone={User} required placeholder="Ex.: Mecânica do João" />
-        <CampoTexto id="link" rotulo="Link de avaliação" icone={MapPin} type="url" required placeholder="https://g.page/r/... ou https://maps.app.goo.gl/..." />
-        {aviso}
-        <BotaoPrincipal carregando={ocupado}><Zap className="size-4" aria-hidden /> Ativar produto agora</BotaoPrincipal>
+        <label className="flex flex-col gap-2 text-sm font-medium text-slate-700">
+          Nome da empresa
+          <input name="nome" required minLength={2} maxLength={200} defaultValue={escolha?.tipo === "manual" ? escolha.nome : ""} className={campo} />
+        </label>
+        <label className="flex flex-col gap-2 text-sm font-medium text-slate-700">
+          Link de avaliação
+          <input name="link" type="url" required maxLength={2048} placeholder="https://g.page/r/... ou https://maps.app.goo.gl/..." defaultValue={escolha?.tipo === "manual" ? escolha.link : ""} className={campo} />
+          <span className="text-xs font-normal text-slate-500">No Google Maps, abra sua empresa, toque em Compartilhar e copie o link.</span>
+        </label>
+        <BotaoAzul type="submit">Continuar</BotaoAzul>
       </form>
     );
   }
 
-  if (etapa === "ativada") {
-    return (
-      <div className="flex flex-col items-center gap-4 text-center" role="status">
-        <span className="flex size-16 items-center justify-center rounded-2xl bg-emerald-50 ring-1 ring-emerald-200">
-          <CheckCircle2 className="size-9 text-emerald-600" aria-hidden />
-        </span>
-        <p className="text-xl font-semibold text-slate-900">Placa ativada!</p>
-        <p className="text-sm text-slate-500">A partir de agora, quem aproximar o celular ou ler o QR Code vai direto para a avaliação no Google.</p>
-        <a href={`/t/${codigo}`} className="flex h-12 w-full items-center justify-center rounded-xl bg-blue-600 font-semibold text-white">Testar agora</a>
-      </div>
-    );
-  }
-
-  // Etapa "empresa": busca no Google, como no fluxo de referência.
+  // "Qual sua empresa?"
   return (
     <div className="flex flex-col gap-5">
-      <form noValidate onSubmit={(e) => enviar(e, async () => {
-        setEmpresas(null);
-        const r = await pesquisarEmpresa(codigo, consulta);
-        if ("erro" in r) return setErro(r.erro);
-        setEmpresas(r.empresas);
-      })}>
-        <p className="mb-3 text-center text-xl font-semibold text-blue-700">Qual sua empresa?</p>
-        <p className="mb-4 text-center text-sm text-slate-500">Digite o nome da sua empresa assim como está no Google.</p>
-        <div className="relative">
-          <input value={consulta} onChange={(e) => setConsulta(e.target.value)} className={classeBusca} placeholder="Digite o nome da sua empresa" aria-label="Nome da empresa" minLength={3} maxLength={180} />
-          <button type="submit" disabled={ocupado} className="absolute top-1/2 right-2 flex size-9 -translate-y-1/2 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100" aria-label="Buscar">
-            <Search className="size-5" />
-          </button>
-        </div>
+      <Progresso atual={0} />
+      <div className="text-center">
+        <p className="text-2xl font-semibold tracking-tight text-slate-900">Qual sua empresa?</p>
+        <p className="mt-1 text-sm text-slate-500">Digite o nome da sua empresa assim como está no Google.</p>
+      </div>
+
+      <form onSubmit={buscar} className="relative" noValidate>
+        <MapPin className="pointer-events-none absolute top-1/2 left-4 size-4 -translate-y-1/2 text-slate-400" aria-hidden />
+        <input
+          value={consulta}
+          onChange={(e) => setConsulta(e.target.value)}
+          placeholder="Ex.: Padaria Pão Quente, Piracicaba"
+          aria-label="Nome da empresa"
+          maxLength={180}
+          className={`${campo} pr-12 pl-11`}
+        />
+        <button type="submit" disabled={ocupado} aria-label="Buscar" className="absolute top-1/2 right-1.5 flex size-9 -translate-y-1/2 items-center justify-center rounded-lg bg-marca text-white shadow-sm transition hover:brightness-110">
+          {ocupado && !empresas ? <Loader2 className="size-5 animate-spin" /> : <Search className="size-5" />}
+        </button>
       </form>
 
-      <p className="rounded-xl bg-blue-50 px-4 py-3 text-sm text-blue-900">
-        <strong>Dica:</strong> não encontrou de primeira? Acrescente a cidade ou o bairro ao nome da empresa para refinar a busca.
+      <p className="-mt-2 flex gap-2 text-[13px] leading-relaxed text-slate-500">
+        <Lightbulb className="mt-0.5 size-4 shrink-0 text-amber-500" aria-hidden />
+        <span><strong className="font-medium text-slate-700">Dica:</strong> não encontrou de primeira? Acrescente a cidade ou o bairro ao nome da empresa para refinar a busca.</span>
       </p>
 
-      {ocupado && <p role="status" className="text-sm text-slate-500">Buscando...</p>}
-      {aviso}
-      {empresas?.length === 0 && <p className="text-sm text-slate-500">Nenhuma empresa encontrada. Tente incluir a cidade.</p>}
+      <Erro texto={erro} />
+
+      {empresas?.length === 0 && <p className="text-center text-sm text-slate-500">Nenhuma empresa encontrada. Tente incluir a cidade.</p>}
       {!!empresas?.length && (
-        <ul className="flex flex-col divide-y divide-slate-100 overflow-hidden rounded-xl border border-slate-200 bg-white" aria-live="polite">
+        <ul className="flex flex-col divide-y divide-slate-100 overflow-hidden rounded-2xl border border-slate-200" aria-live="polite">
           {empresas.map((e) => (
             <li key={e.id}>
-              <button type="button" disabled={ocupado} onClick={() => executar(async () => {
-                const r = await verDetalhesEmpresa(codigo, e.id);
-                if ("erro" in r) return setErro(r.erro);
-                setEmpresa(r.empresa);
-                setEtapa("confirmar");
-              })} className="w-full px-4 py-3 text-left transition-colors hover:bg-slate-50">
-                <span className="block font-medium text-slate-900">{e.nome}</span>
-                {e.endereco && <span className="block text-sm text-slate-500">{e.endereco}</span>}
+              <button
+                type="button"
+                disabled={ocupado}
+                onClick={() =>
+                  executar(async () => {
+                    const r = await verDetalhesEmpresa(codigo, e.id);
+                    if ("erro" in r) return setErro(r.erro);
+                    setEscolha({ tipo: "google", empresa: r.empresa });
+                    setEtapa("quase");
+                  })
+                }
+                className="flex w-full items-center gap-3 px-4 py-3 text-left transition hover:bg-marca-claro disabled:opacity-60"
+              >
+                <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-marca to-marca-ciano text-sm font-semibold text-white">
+                  {e.nome.trim().charAt(0).toUpperCase()}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate font-medium text-slate-900">{e.nome}</span>
+                  {e.endereco && <span className="block truncate text-sm text-slate-500">{e.endereco}</span>}
+                </span>
+                <ChevronRight className="size-4 shrink-0 text-slate-300" aria-hidden />
               </button>
             </li>
           ))}
         </ul>
       )}
 
-      <button type="button" onClick={() => { setErro(""); setEtapa("manual"); }} className="text-sm font-medium text-blue-700 hover:underline">
-        Não encontrou seu negócio? Cadastre pelo link
-      </button>
+      <div className="flex flex-col items-center gap-2 border-t border-slate-100 pt-5 text-sm">
+        <button type="button" onClick={() => { setErro(""); setEtapa("manual"); }} className="font-medium text-marca-texto hover:underline">
+          Não encontrou seu negócio?
+        </button>
+        <button type="button" onClick={() => setAjuda((v) => !v)} className="text-slate-500 underline-offset-2 hover:underline" aria-expanded={ajuda}>
+          Precisa de ajuda?
+        </button>
+        {ajuda && (
+          <p className="rounded-xl bg-slate-50 px-4 py-3 text-left text-slate-600">
+            Digite o nome da empresa como aparece no Google Maps e toque na lupa. Escolha sua empresa na lista e informe seu e-mail.
+            Se ela não aparecer, use &quot;Não encontrou seu negócio?&quot; e cole o link de avaliação copiado do Google Maps.
+          </p>
+        )}
+      </div>
     </div>
   );
 }

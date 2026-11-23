@@ -58,9 +58,8 @@ async function situacaoDa(codigo: string): Promise<Situacao> {
   const { data, error } = await clienteSupabaseServico().from("placas")
     .select("status, preparada_nfc").eq("codigo", codigo).maybeSingle();
   if (error) throw new Error("Falha ao consultar a placa");
-  // Placa atribuída a um cliente (de lote ou preparada) e tag preparada em estoque vão para a ativação.
-  const preparadaPendente = data?.preparada_nfc && data.status !== "ativa" && data.status !== "desativada";
-  if (preparadaPendente || data?.status === "atribuida") {
+  // Placa criada (em estoque) ou atribuída vai para a ativação.
+  if (data?.status === "disponivel" || data?.status === "atribuida") {
     redirect(`/ativar/${codigo}`);
   }
   return data?.status ?? "inexistente";
