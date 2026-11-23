@@ -1,6 +1,7 @@
 "use server";
 
 import { z } from "zod";
+import { headers } from "next/headers";
 import { caminhoInternoSeguro } from "@/lib/auth";
 import { urlDoSiteParaLogin } from "@/lib/env";
 import { clienteSupabaseUsuario } from "@/lib/supabase/servidor";
@@ -11,7 +12,8 @@ export async function solicitarRecuperacao(proximo: string, _anterior: Estado, d
   const email = z.email().max(254).safeParse(String(dados.get("email") ?? "").trim().toLowerCase());
   if (!email.success) return { tipo: "erro", mensagem: "Informe um e-mail válido." };
 
-  const retorno = new URL("/auth/confirmar", urlDoSiteParaLogin());
+  const requisicao = await headers();
+  const retorno = new URL("/auth/confirmar", urlDoSiteParaLogin(requisicao.get("host")));
   retorno.searchParams.set("recuperar", "1");
   retorno.searchParams.set("proximo", caminhoInternoSeguro(proximo, "/painel/empresas"));
 

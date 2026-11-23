@@ -7,6 +7,7 @@ const mocks = vi.hoisted(() => ({
   reset: vi.fn(), exchange: vi.fn(), rpc: vi.fn(),
 }));
 vi.mock("@/lib/env", () => ({ urlDoSiteParaLogin: () => "https://www.speedtag.online" }));
+vi.mock("next/headers", () => ({ headers: async () => new Headers({ host: "www.speedtag.online" }) }));
 vi.mock("@/lib/supabase/servidor", () => ({
   clienteSupabaseUsuario: async () => ({
     auth: { resetPasswordForEmail: mocks.reset, exchangeCodeForSession: mocks.exchange },

@@ -1,6 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { headers } from "next/headers";
 import { z } from "zod";
 import { caminhoInternoSeguro } from "@/lib/auth";
 import { urlDoSiteParaLogin } from "@/lib/env";
@@ -43,7 +44,8 @@ export async function enviarLinkMagico(_anterior: EstadoEntrar, dados: FormData)
   }
 
   const proximo = caminhoInternoSeguro(entrada.data.proximo, "/painel/empresas");
-  const retorno = new URL("/auth/confirmar", urlDoSiteParaLogin());
+  const requisicao = await headers();
+  const retorno = new URL("/auth/confirmar", urlDoSiteParaLogin(requisicao.get("host")));
   retorno.searchParams.set("proximo", proximo);
 
   const supabase = await clienteSupabaseUsuario();
@@ -57,7 +59,7 @@ export async function enviarLinkMagico(_anterior: EstadoEntrar, dados: FormData)
     const mensagem =
       error.status === 429
         ? "Muitas tentativas. Aguarde um minuto e tente de novo."
-        : "Não foi possível enviar o link agora. Tente de novo em instantes.";
+        : "O link não pôde ser enviado agora. Se você já tem uma senha, use o formulário de login acima.";
     console.error("[entrar] signInWithOtp falhou", error.status, error.code);
     return { tipo: "erro", mensagem };
   }

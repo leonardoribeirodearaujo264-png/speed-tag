@@ -12,7 +12,9 @@ O Supabase Auth emite os links de acesso e recuperação. Para enviá-los pelo R
 | Senha | Chave de envio do Resend, guardada no painel do Supabase |
 | Remetente | Endereço no domínio verificado, por exemplo `acesso@speedtag.online` |
 
-Configure a URL pública do Supabase Auth como `https://www.speedtag.online` e permita o retorno em `https://www.speedtag.online/auth/confirmar`. No desenvolvimento, permita também a URL local de retorno configurada em `AUTH_REDIRECT_SITE_URL`. Use os modelos de e-mail do Supabase com `{{ .ConfirmationURL }}` e mantenha o rastreamento de cliques desativado no Resend para estes links.
+Configure a URL pública do Supabase Auth como `https://www.speedtag.online`. Permita o retorno em `https://www.speedtag.online/auth/confirmar` e `https://speedtag.online/auth/confirmar` enquanto os dois endereços servirem o aplicativo. O retorno usa o mesmo endereço do navegador para manter o cookie de autenticação. No desenvolvimento, permita também a URL local de retorno configurada em `AUTH_REDIRECT_SITE_URL`. Use os modelos de e-mail do Supabase com `{{ .ConfirmationURL }}` e mantenha o rastreamento de cliques desativado no Resend para estes links.
+
+Se o domínio usar `send.speedtag.online` para outro provedor, configure um subdomínio de retorno exclusivo no Resend e publique os registros MX e TXT exibidos por ele nesse subdomínio.
 
 [SMTP no Resend](https://resend.com/changelog/smtp-service) · [SMTP personalizado no Supabase](https://supabase.com/docs/guides/auth/auth-smtp)
 

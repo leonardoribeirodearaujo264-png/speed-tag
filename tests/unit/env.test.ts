@@ -70,4 +70,12 @@ describe("env", () => {
     const { envPublico } = await carregar();
     expect(envPublico().NEXT_PUBLIC_SUPABASE_URL).toBe(validas.NEXT_PUBLIC_SUPABASE_URL);
   });
+
+  it("mantém o host público que iniciou a autenticação e ignora hosts desconhecidos", async () => {
+    aplicar({ ...validas, NEXT_PUBLIC_SITE_URL: "https://www.speedtag.online" });
+    const { urlDoSiteParaLogin } = await carregar();
+    expect(urlDoSiteParaLogin("speedtag.online")).toBe("https://speedtag.online");
+    expect(urlDoSiteParaLogin("www.speedtag.online")).toBe("https://www.speedtag.online");
+    expect(urlDoSiteParaLogin("speedtag.online.exemplo.dev")).toBe("https://www.speedtag.online");
+  });
 });

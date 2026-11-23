@@ -67,9 +67,16 @@ export function urlDoSite(): string {
   return configurada.replace(/\/+$/, "");
 }
 
-export function urlDoSiteParaLogin(): string {
+export function urlDoSiteParaLogin(host?: string | null): string {
   const local = process.env.NODE_ENV === "development" ? process.env.AUTH_REDIRECT_SITE_URL?.trim() : null;
-  return local ? z.url().parse(local) : urlDoSite();
+  if (local) return z.url().parse(local);
+
+  // O cookie PKCE precisa voltar ao mesmo host que iniciou o fluxo.
+  const hostPublico = host?.toLowerCase();
+  if (hostPublico === "speedtag.online" || hostPublico === "www.speedtag.online") {
+    return `https://${hostPublico}`;
+  }
+  return urlDoSite();
 }
 
 let cacheServidor: EnvServidor | undefined;
