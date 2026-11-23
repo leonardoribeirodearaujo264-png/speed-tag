@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { exigirAdmin } from "@/lib/auth";
 import { criarLote } from "@/lib/placas/criacao";
+import { modeloArte } from "@/lib/placas/modelos-arte";
 
 export type EstadoNovoLote = { erro: string | null };
 
@@ -31,6 +32,7 @@ export async function criarLoteAcao(_anterior: EstadoNovoLote, dados: FormData):
     nome: entrada.data.nome,
     quantidade: entrada.data.quantidade,
     revendedor: entrada.data.revendedor ?? null,
+    modeloArte: modeloArte(dados.get("modelo_arte")),
   });
   if (!resultado.ok) return { erro: resultado.mensagem };
 

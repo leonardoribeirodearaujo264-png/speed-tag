@@ -1,7 +1,7 @@
 import { ImageResponse } from "next/og";
 import { ArtePlaca } from "@/components/placa/arte-placa";
 import { verificarAdminApi } from "@/lib/auth";
-import { buscarPlacaPorCodigo, respostaErroBusca } from "@/lib/placas/consultas";
+import { buscarPlacaPorCodigo, modeloDoLote, respostaErroBusca } from "@/lib/placas/consultas";
 import { fundoArteDataUri } from "@/lib/placas/fundo-arte";
 import { modeloArte } from "@/lib/placas/modelos-arte";
 import { qrDaArte } from "@/lib/placas/qr";
@@ -22,7 +22,9 @@ export async function GET(request: Request, ctx: RouteContext<"/api/admin/placas
   const qr = await qrDaArte(urlQr(placa.codigo));
   const parametros = new URL(request.url).searchParams;
   const baixar = parametros.get("baixar") === "1";
-  const modelo = modeloArte(parametros.get("modelo"));
+  // Sem ?modelo=, vale a arte salva no lote da placa.
+  const pedido = parametros.get("modelo");
+  const modelo = pedido ? modeloArte(pedido) : await modeloDoLote(sessao.supabase, placa.lote_id);
   const fundo = await fundoArteDataUri(modelo);
 
   return new ImageResponse(<ArtePlaca codigo={placa.codigo} qrDataUri={qr} tamanho={LADO} modelo={modelo} fundo={fundo} />, {

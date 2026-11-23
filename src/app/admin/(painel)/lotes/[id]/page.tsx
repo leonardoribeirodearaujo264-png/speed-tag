@@ -8,6 +8,8 @@ import { exigirAdmin } from "@/lib/auth";
 import { formatarData } from "@/lib/placas/rotulos";
 import type { StatusPlaca } from "@/lib/supabase/tipos";
 import { FormAtribuirLote } from "./form-atribuir";
+import { FormModeloLote } from "./form-modelo";
+import { modeloArte } from "@/lib/placas/modelos-arte";
 
 // Painel com login: navegação espera o servidor (sessão lida a cada requisição).
 export const instant = false;
@@ -30,7 +32,7 @@ export default async function DetalheLote({ params, searchParams }: PageProps<"/
 
   const { data: lote, error } = await supabase
     .from("lotes")
-    .select("id, nome, quantidade, revendedor, criado_em")
+    .select("*")
     .eq("id", id)
     .maybeSingle();
   if (error) throw new Error("Falha ao carregar o lote");
@@ -86,6 +88,13 @@ export default async function DetalheLote({ params, searchParams }: PageProps<"/
         </Painel>
 
         <Painel>
+          <TituloPainel titulo="Arte das placas" descricao="Modelo usado na prévia, no PNG e na folha de impressão deste lote." />
+          <div className="px-5 pb-6 sm:px-6">
+            <FormModeloLote loteId={id} atual={modeloArte(lote.modelo_arte)} />
+          </div>
+        </Painel>
+
+        <Painel>
           <TituloPainel titulo="Exportar para a gráfica" descricao="Planilha com os links, QR Codes e folha de impressão." />
           <div className="flex flex-wrap gap-2 px-5 pb-6 sm:px-6">
             <a href={`${exportar}?formato=csv`} className={buttonVariants({ variant: "outline" })}>
@@ -94,7 +103,7 @@ export default async function DetalheLote({ params, searchParams }: PageProps<"/
             <a href={`${exportar}?formato=zip`} className={buttonVariants({ variant: "outline" })}>
               <FolderArchive aria-hidden /> QR Codes (ZIP)
             </a>
-            <Link href={`/admin/impressao?lote=${id}`} className={buttonVariants({ variant: "outline" })}>
+            <Link href={`/admin/impressao?lote=${id}&modelo=${modeloArte(lote.modelo_arte)}`} className={buttonVariants({ variant: "outline" })}>
               <Printer aria-hidden /> Folha de impressão / PDF
             </Link>
           </div>

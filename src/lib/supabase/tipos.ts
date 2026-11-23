@@ -55,6 +55,8 @@ export type Lote = {
   revendedor: string | null;
   criado_por: string | null;
   criado_em: string;
+  /** Modelo da arte impressa: ver src/lib/placas/modelos-arte.ts. */
+  modelo_arte: "azul" | "preta";
 };
 
 export type Empresa = {

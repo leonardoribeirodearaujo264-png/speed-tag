@@ -100,11 +100,10 @@ export default async function DetalhePlaca({ params, searchParams }: PageProps<"
   if (placa.codigo !== codigoBruto) redirect(`/admin/placas/${placa.codigo}`);
 
   const { criada, modelo: modeloBruto } = await searchParams;
-  const modelo = modeloArte(modeloBruto);
   const [qrDataUri, lote, empresa, dono, historico, leituras, recentes, lotes] = await Promise.all([
     qrDaArte(urlQr(placa.codigo)),
     placa.lote_id
-      ? supabase.from("lotes").select("id, nome").eq("id", placa.lote_id).maybeSingle().then((r) => r.data)
+      ? supabase.from("lotes").select("*").eq("id", placa.lote_id).maybeSingle().then((r) => r.data)
       : Promise.resolve(null),
     placa.empresa_id
       ? supabase.from("empresas").select("nome, origem, google_place_id").eq("id", placa.empresa_id).maybeSingle().then((r) => r.data)
@@ -127,6 +126,8 @@ export default async function DetalhePlaca({ params, searchParams }: PageProps<"
     estatisticasPlaca(supabase, placa.id),
     supabase.from("lotes").select("id, nome").order("criado_em", { ascending: false }).then((r) => r.data ?? []),
   ]);
+  // ?modelo= mostra outra arte só nesta tela; sem ele, vale a arte salva no lote.
+  const modelo = modeloArte(typeof modeloBruto === "string" ? modeloBruto : lote?.modelo_arte);
   const { serie, totalNfc, totalQr, ultimaLeitura } = recentes;
     const base = `/api/admin/placas/${placa.codigo}`;
 

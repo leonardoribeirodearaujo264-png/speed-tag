@@ -1,5 +1,6 @@
 import { codigoValido, normalizarCodigo } from "@/lib/codigos";
 import type { clienteSupabaseUsuario } from "@/lib/supabase/servidor";
+import { MODELO_PADRAO, modeloArte, type ModeloArte } from "@/lib/placas/modelos-arte";
 import type { Placa } from "@/lib/supabase/tipos";
 
 type Supabase = Awaited<ReturnType<typeof clienteSupabaseUsuario>>;
@@ -50,4 +51,14 @@ export async function listarCodigosDoLote(supabase: Supabase, loteId: string): P
 export function respostaErroBusca(status: 400 | 404 | 500): Response {
   const erro = { 400: "CODIGO_INVALIDO", 404: "NAO_ENCONTRADA", 500: "ERRO_INTERNO" }[status];
   return Response.json({ erro }, { status });
+}
+
+/**
+ * Modelo de arte salvo no lote (padrão para placa avulsa). Lê com "*" para continuar
+ * funcionando antes da migração 0015, quando a coluna ainda não existe.
+ */
+export async function modeloDoLote(supabase: Supabase, loteId: string | null): Promise<ModeloArte> {
+  if (!loteId) return MODELO_PADRAO;
+  const { data } = await supabase.from("lotes").select("*").eq("id", loteId).maybeSingle();
+  return modeloArte(data?.modelo_arte);
 }

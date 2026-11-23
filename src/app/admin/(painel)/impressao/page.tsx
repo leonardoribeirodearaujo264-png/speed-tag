@@ -4,7 +4,7 @@ import { z } from "zod";
 import { ArtePlaca } from "@/components/placa/arte-placa";
 import { buttonVariants } from "@/components/ui/button";
 import { exigirAdmin } from "@/lib/auth";
-import { buscarPlacaPorCodigo, listarCodigosDoLote } from "@/lib/placas/consultas";
+import { buscarPlacaPorCodigo, listarCodigosDoLote, modeloDoLote } from "@/lib/placas/consultas";
 import { MODELOS_ARTE, NOMES_MODELOS, modeloArte } from "@/lib/placas/modelos-arte";
 import { qrDaArte } from "@/lib/placas/qr";
 import { urlQr } from "@/lib/placas/urls";
@@ -26,7 +26,7 @@ const esquema = z.object({
   codigo: z.string().max(12).optional().catch(undefined),
   cm: z.coerce.number().pipe(z.union(LADOS_CM.map((v) => z.literal(v)))).default(8).catch(8),
   pagina: z.coerce.number().int().min(1).default(1).catch(1),
-  modelo: z.unknown().transform(modeloArte),
+  modelo: z.string().optional().catch(undefined),
 });
 
 export default async function Impressao({ searchParams }: PageProps<"/admin/impressao">) {
@@ -35,20 +35,26 @@ export default async function Impressao({ searchParams }: PageProps<"/admin/impr
 
   let codigos: string[];
   let titulo: string;
+  let loteDaArte: string | null;
   if (f.codigo) {
     const busca = await buscarPlacaPorCodigo(supabase, f.codigo);
     if (!busca.ok) notFound();
     codigos = [busca.dado.codigo];
     titulo = `Placa ${busca.dado.codigo}`;
+    loteDaArte = busca.dado.lote_id;
   } else if (f.lote) {
     const { data: lote } = await supabase.from("lotes").select("nome").eq("id", f.lote).maybeSingle();
     const todos = lote ? await listarCodigosDoLote(supabase, f.lote) : null;
     if (!lote || !todos) notFound();
     codigos = todos;
     titulo = lote.nome;
+    loteDaArte = f.lote;
   } else {
     notFound();
   }
+
+  // ?modelo= troca a arte só nesta folha; sem ele, vale a arte salva no lote.
+  const modeloAtual = f.modelo ? modeloArte(f.modelo) : await modeloDoLote(supabase, loteDaArte);
 
   const paginas = Math.max(1, Math.ceil(codigos.length / POR_PAGINA));
   const pagina = Math.min(f.pagina, paginas);
@@ -82,8 +88,8 @@ export default async function Impressao({ searchParams }: PageProps<"/admin/impr
             <Link
               key={modelo}
               href={link({ modelo })}
-              aria-current={modelo === f.modelo ? "true" : undefined}
-              className={buttonVariants({ variant: modelo === f.modelo ? "secondary" : "ghost", size: "sm" })}
+              aria-current={modelo === modeloAtual ? "true" : undefined}
+              className={buttonVariants({ variant: modelo === modeloAtual ? "secondary" : "ghost", size: "sm" })}
             >
               {MODELOS_ARTE[modelo].rotulo}
             </Link>
@@ -111,7 +117,7 @@ export default async function Impressao({ searchParams }: PageProps<"/admin/impr
       <div className="flex flex-wrap gap-[4mm] bg-white p-4 print:p-0">
         {artes.map(({ codigo, qr }) => (
           <div key={codigo} className="break-inside-avoid border border-dashed border-slate-300 p-[2mm]">
-            <ArtePlaca codigo={codigo} qrDataUri={qr} tamanho={ladoPx} modelo={f.modelo} />
+            <ArtePlaca codigo={codigo} qrDataUri={qr} tamanho={ladoPx} modelo={modeloAtual} />
           </div>
         ))}
       </div>

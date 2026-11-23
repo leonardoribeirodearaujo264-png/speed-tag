@@ -5,7 +5,7 @@ import QRCode from "qrcode";
 import { describe, expect, it } from "vitest";
 import { ArtePlaca } from "@/components/placa/arte-placa";
 import { fundoArteDataUri } from "@/lib/placas/fundo-arte";
-import { NOMES_MODELOS } from "@/lib/placas/modelos-arte";
+import { MODELO_PADRAO, NOMES_MODELOS, modeloArte } from "@/lib/placas/modelos-arte";
 import { gerarQrPng, gerarQrSvg, qrDaArte } from "@/lib/placas/qr";
 import { urlNfc, urlQr } from "@/lib/placas/urls";
 
@@ -58,4 +58,14 @@ describe("arte da placa no Satori (PNG)", () => {
     mkdirSync(pasta, { recursive: true });
     writeFileSync(join(pasta, `arte-A1B2C3-${modelo}.png`), png);
   }, 30_000);
+});
+
+describe("modelo da arte do lote", () => {
+  it("aceita só modelos conhecidos e cai no padrão", () => {
+    expect(modeloArte("preta")).toBe("preta");
+    expect(modeloArte("azul")).toBe("azul");
+    expect(modeloArte("vermelha")).toBe(MODELO_PADRAO);
+    expect(modeloArte(undefined)).toBe(MODELO_PADRAO);
+    expect(modeloArte(null)).toBe(MODELO_PADRAO);
+  });
 });
