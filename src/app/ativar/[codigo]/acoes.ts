@@ -43,25 +43,28 @@ async function placaAtivavel(codigoBruto: string): Promise<{ codigo: string } | 
   return { codigo };
 }
 
-export async function pesquisarEmpresa(codigo: string, consulta: string): Promise<{ empresas: EmpresaEncontrada[] } | Erro> {
+/** Token da sessão de busca do Google (UUID gerado na tela): só repassado se for válido. */
+const sessaoValida = (sessao?: string) => (sessao && z.uuid().safeParse(sessao).success ? sessao : undefined);
+
+export async function pesquisarEmpresa(codigo: string, consulta: string, sessao?: string): Promise<{ empresas: EmpresaEncontrada[] } | Erro> {
   const busca = z.string().trim().min(3).max(180).safeParse(consulta);
   if (!busca.success) return { erro: "Digite pelo menos 3 letras do nome da empresa." };
   const placa = await placaAtivavel(codigo);
   if ("erro" in placa) return placa;
   try {
-    return { empresas: await buscarEmpresas(busca.data) };
+    return { empresas: await buscarEmpresas(busca.data, sessaoValida(sessao)) };
   } catch (erro) {
     console.error("[ativar] busca no Google", erro instanceof Error ? erro.message : "erro");
     return { erro: "A busca no Google está indisponível agora. Use \"Não encontrou seu negócio?\"." };
   }
 }
 
-export async function verDetalhesEmpresa(codigo: string, placeId: string): Promise<{ empresa: DetalhesEmpresa } | Erro> {
+export async function verDetalhesEmpresa(codigo: string, placeId: string, sessao?: string): Promise<{ empresa: DetalhesEmpresa } | Erro> {
   if (!esquemaPlaceId.safeParse(placeId).success) return { erro: "Selecione uma empresa da lista." };
   const placa = await placaAtivavel(codigo);
   if ("erro" in placa) return placa;
   try {
-    return { empresa: await detalhesEmpresa(placeId) };
+    return { empresa: await detalhesEmpresa(placeId, sessaoValida(sessao)) };
   } catch (erro) {
     console.error("[ativar] detalhes no Google", erro instanceof Error ? erro.message : "erro");
     return { erro: "Não foi possível carregar os dados da empresa. Tente de novo." };

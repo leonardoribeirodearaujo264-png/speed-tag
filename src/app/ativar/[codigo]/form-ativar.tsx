@@ -109,6 +109,8 @@ export function FormAtivar({ codigo }: { codigo: string }) {
   const [email, setEmail] = useState("");
   const [emailEnviado, setEmailEnviado] = useState(false);
   const [ajuda, setAjuda] = useState(false);
+  // Uma sessão do Google por tentativa: agrupa buscas e a escolha da empresa na cobrança.
+  const [sessao] = useState(() => crypto.randomUUID());
   const [erro, setErro] = useState("");
   const [ocupado, iniciar] = useTransition();
 
@@ -127,7 +129,7 @@ export function FormAtivar({ codigo }: { codigo: string }) {
     evento.preventDefault();
     executar(async () => {
       setEmpresas(null);
-      const r = await pesquisarEmpresa(codigo, consulta);
+      const r = await pesquisarEmpresa(codigo, consulta, sessao);
       if ("erro" in r) return setErro(r.erro);
       setEmpresas(r.empresas);
     });
@@ -274,7 +276,7 @@ export function FormAtivar({ codigo }: { codigo: string }) {
                 disabled={ocupado}
                 onClick={() =>
                   executar(async () => {
-                    const r = await verDetalhesEmpresa(codigo, e.id);
+                    const r = await verDetalhesEmpresa(codigo, e.id, sessao);
                     if ("erro" in r) return setErro(r.erro);
                     setEscolha({ tipo: "google", empresa: r.empresa });
                     setEtapa("quase");
