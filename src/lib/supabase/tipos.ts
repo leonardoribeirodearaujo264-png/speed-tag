@@ -238,6 +238,7 @@ export type Database = {
       admin_transferir_placas: { Args: { p_codigos: string[]; p_usuario: string }; Returns: Json };
       admin_mover_lote: { Args: { p_codigos: string[]; p_lote: string | null }; Returns: Json };
       email_tem_conta: { Args: { p_email: string }; Returns: boolean };
+      consumir_cota_google: { Args: { p_chave: string; p_limite: number; p_janela_segundos: number }; Returns: boolean };
       usuario_por_email: { Args: { p_email: string }; Returns: string | null };
       ativar_placa_cliente: {
         Args: { p_codigo: string; p_ator: string; p_origem: OrigemEmpresa; p_place_id: string | null; p_nome: string; p_link: string };

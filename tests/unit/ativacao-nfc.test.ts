@@ -10,6 +10,13 @@ const mocks = vi.hoisted(() => ({
   createUser: vi.fn(),
   signInWithOtp: vi.fn(),
   revalidatePath: vi.fn(),
+  cota: vi.fn(),
+  verificar: vi.fn(),
+}));
+vi.mock("@/lib/google/cota", () => ({ consumirCotaGoogle: mocks.cota, MENSAGEM_COTA: "cota esgotada" }));
+vi.mock("@/lib/google/links-maps", async (original) => ({
+  ...(await original<typeof import("@/lib/google/links-maps")>()),
+  verificarLinkAvaliacao: mocks.verificar,
 }));
 vi.mock("next/cache", () => ({ revalidatePath: mocks.revalidatePath }));
 vi.mock("@supabase/supabase-js", () => ({ createClient: () => ({ auth: { signInWithOtp: mocks.signInWithOtp } }) }));
@@ -51,6 +58,22 @@ describe("ativação pelo cliente (fluxo do vídeo)", () => {
     mocks.placa.mockResolvedValue({ data: { status: "disponivel" }, error: null });
     mocks.upsert.mockResolvedValue({ error: null });
     mocks.signInWithOtp.mockResolvedValue({ error: null });
+    mocks.cota.mockResolvedValue(true);
+    mocks.verificar.mockResolvedValue({ estado: "ok", detalhe: "" });
+  });
+
+  it("não chama o Google quando a cota acabou", async () => {
+    mocks.cota.mockResolvedValue(false);
+    expect(await pesquisarEmpresa(codigo, "Loja de teste")).toEqual({ erro: "cota esgotada" });
+    expect(fetchGoogle).not.toHaveBeenCalled();
+  });
+
+  it("não ativa quando o link de avaliação não existe", async () => {
+    rpcCom({ ok: true });
+    mocks.verificar.mockResolvedValue({ estado: "invalido", detalhe: "O Google diz que este link não existe." });
+    const r = await ativarComLink(codigo, "dono@empresa.com", "Loja", "https://maps.app.goo.gl/morto");
+    expect(r).toEqual({ erro: "O link de avaliação não funciona: O Google diz que este link não existe." });
+    expect(mocks.servicoRpc).not.toHaveBeenCalledWith("ativar_placa_cliente", expect.anything());
   });
 
   afterEach(() => {

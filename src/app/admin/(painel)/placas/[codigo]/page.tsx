@@ -261,7 +261,7 @@ export default async function DetalhePlaca({ params, searchParams }: PageProps<"
           <Painel>
             <TituloPainel titulo="Editar placa" descricao="Lote, cliente, empresa ou uma cópia com código novo." />
             <div className="px-5 pb-6 sm:px-6">
-              <EditarPlaca codigo={placa.codigo} status={placa.status} loteAtual={placa.lote_id} lotes={lotes} />
+              <EditarPlaca codigo={placa.codigo} status={placa.status} loteAtual={placa.lote_id} lotes={lotes} emailCliente={dono?.email ?? null} />
             </div>
           </Painel>
 

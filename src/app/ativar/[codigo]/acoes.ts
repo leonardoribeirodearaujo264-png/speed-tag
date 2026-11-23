@@ -1,152 +1,51 @@
 "use server";
 
-import { randomBytes } from "node:crypto";
-import { createClient } from "@supabase/supabase-js";
-import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { codigoValido, normalizarCodigo } from "@/lib/codigos";
-import { envPublico, urlDoSite } from "@/lib/env";
-import { linkEscreverAvaliacao, linkGooglePermitido } from "@/lib/google/dominios";
-import { buscarEmpresas, detalhesEmpresa, esquemaPlaceId, type DetalhesEmpresa, type EmpresaEncontrada } from "@/lib/google/places";
-import { ROTA_PREPARO_NFC } from "@/lib/placas/preparo-nfc";
-import { clienteSupabaseServico } from "@/lib/supabase/servidor";
-import type { OrigemEmpresa } from "@/lib/supabase/tipos";
+import { linkGooglePermitido } from "@/lib/google/dominios";
+import { gerarPorLink, gerarPorPlaceId, pesquisarNoGoogle, type EmpresaGerada } from "@/lib/google/gerador";
+import { linkAvaliacaoSeguro, esquemaPlaceId, type EmpresaEncontrada } from "@/lib/google/places";
+import { ativarPlaca, placaAtivavel, type Erro, type ResultadoAtivacao } from "@/lib/placas/ativacao";
 
 /**
- * Ativação no fluxo do vídeo de referência: "Qual sua empresa?" (busca no Google ou
- * link manual), "Quase lá!" (e-mail) e ativação. Não pede senha: a conta do e-mail é
- * encontrada ou criada pelo servidor, e o acesso à plataforma vai por e-mail.
+ * Ativação no fluxo do vídeo de referência: "Qual sua empresa?" (busca no Google, link
+ * do Maps colado ou link manual), "Quase lá!" (e-mail) e ativação. Não pede senha: a
+ * conta do e-mail é encontrada ou criada pelo servidor, e o acesso vai por e-mail.
+ * Sem login: as chamadas ao Google passam pela cota por IP e só para placa ativável.
  */
 
-type Erro = { erro: string };
-
-const MENSAGENS: Record<string, string> = {
-  NAO_ENCONTRADA: "Placa não encontrada.",
-  JA_ATIVADA: "Esta placa já foi ativada.",
-  DESATIVADA: "Esta placa está desativada.",
-  NAO_E_SUA: "Esta placa já pertence a outra conta. Use o e-mail do dono da placa.",
-  RESERVADA: "Esta placa está reservada. Fale com quem vendeu.",
-  DADOS_INVALIDOS: "Confira o nome e o link de avaliação.",
-  SEM_PERFIL: "Não foi possível preparar a conta deste e-mail. Tente de novo.",
-};
-
-/** Só placa em estoque ou atribuída pode buscar empresa: evita gastar a API do Google à toa. */
-async function placaAtivavel(codigoBruto: string): Promise<{ codigo: string } | Erro> {
-  const codigo = normalizarCodigo(codigoBruto);
-  if (!codigoValido(codigo)) return { erro: "Placa inválida." };
-  const { data: placa, error } = await clienteSupabaseServico().from("placas").select("status").eq("codigo", codigo).maybeSingle();
-  if (error) return { erro: "Não foi possível consultar a placa agora." };
-  if (!placa) return { erro: MENSAGENS.NAO_ENCONTRADA };
-  if (placa.status === "ativa") return { erro: MENSAGENS.JA_ATIVADA };
-  if (placa.status === "desativada") return { erro: MENSAGENS.DESATIVADA };
-  if (placa.status === "reservada") return { erro: MENSAGENS.RESERVADA };
-  return { codigo };
-}
+export type { ResultadoAtivacao };
 
 /** Token da sessão de busca do Google (UUID gerado na tela): só repassado se for válido. */
 const sessaoValida = (sessao?: string) => (sessao && z.uuid().safeParse(sessao).success ? sessao : undefined);
 
 export async function pesquisarEmpresa(codigo: string, consulta: string, sessao?: string): Promise<{ empresas: EmpresaEncontrada[] } | Erro> {
-  const busca = z.string().trim().min(3).max(180).safeParse(consulta);
-  if (!busca.success) return { erro: "Digite pelo menos 3 letras do nome da empresa." };
   const placa = await placaAtivavel(codigo);
   if ("erro" in placa) return placa;
-  try {
-    return { empresas: await buscarEmpresas(busca.data, sessaoValida(sessao)) };
-  } catch (erro) {
-    console.error("[ativar] busca no Google", erro instanceof Error ? erro.message : "erro");
-    return { erro: "A busca no Google está indisponível agora. Use \"Não encontrou seu negócio?\"." };
-  }
+  return pesquisarNoGoogle(consulta, { sessao: sessaoValida(sessao) });
 }
 
-export async function verDetalhesEmpresa(codigo: string, placeId: string, sessao?: string): Promise<{ empresa: DetalhesEmpresa } | Erro> {
-  if (!esquemaPlaceId.safeParse(placeId).success) return { erro: "Selecione uma empresa da lista." };
+export async function verDetalhesEmpresa(codigo: string, placeId: string, sessao?: string): Promise<{ empresa: EmpresaGerada } | Erro> {
   const placa = await placaAtivavel(codigo);
   if ("erro" in placa) return placa;
-  try {
-    return { empresa: await detalhesEmpresa(placeId, sessaoValida(sessao)) };
-  } catch (erro) {
-    console.error("[ativar] detalhes no Google", erro instanceof Error ? erro.message : "erro");
-    return { erro: "Não foi possível carregar os dados da empresa. Tente de novo." };
-  }
+  return gerarPorPlaceId(placeId, { sessao: sessaoValida(sessao) });
 }
 
-/** Encontra a conta do e-mail ou cria uma já confirmada (senha aleatória: o acesso é por link no e-mail). */
-async function contaDoEmail(email: string): Promise<{ id: string; nova: boolean } | Erro> {
-  const servico = clienteSupabaseServico();
-  const { data: existente, error } = await servico.rpc("usuario_por_email", { p_email: email });
-  if (error) {
-    console.error("[ativar] usuario_por_email", error.code);
-    return { erro: "Não foi possível verificar o e-mail agora. Tente de novo." };
-  }
-  if (existente) {
-    // Conta da loja (login compartilhado) ainda sem perfil no app: cria o perfil.
-    await servico.from("perfis").upsert({ id: existente, email }, { onConflict: "id", ignoreDuplicates: true });
-    return { id: existente, nova: false };
-  }
-
-  const criado = await servico.auth.admin.createUser({
-    email,
-    password: randomBytes(24).toString("base64url"),
-    email_confirm: true,
-  });
-  if (criado.error || !criado.data.user) {
-    console.error("[ativar] createUser", criado.error?.status, criado.error?.code);
-    return { erro: "Não foi possível criar a conta deste e-mail. Tente de novo." };
-  }
-  return { id: criado.data.user.id, nova: true };
-}
-
-/** Manda o link de acesso à plataforma. Retorna se o envio foi aceito (o limite de e-mails do Supabase é baixo). */
-async function enviarAcesso(email: string): Promise<boolean> {
-  const env = envPublico();
-  const anonimo = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY, {
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
-  const retorno = new URL("/auth/confirmar", urlDoSite());
-  retorno.searchParams.set("proximo", "/");
-  const { error } = await anonimo.auth.signInWithOtp({ email, options: { emailRedirectTo: retorno.toString(), shouldCreateUser: false } });
-  if (error) console.error("[ativar] envio do acesso por e-mail", error.status, error.code);
-  return !error;
-}
-
-export type ResultadoAtivacao = { ativada: true; emailEnviado: boolean } | Erro;
-
-async function ativar(codigoBruto: string, emailBruto: string, origem: OrigemEmpresa, placeId: string | null, nome: string, link: string): Promise<ResultadoAtivacao> {
-  const email = z.email("Digite um e-mail válido.").max(254).safeParse(emailBruto.trim().toLowerCase());
-  if (!email.success) return { erro: email.error.issues[0]?.message ?? "E-mail inválido." };
-  const placa = await placaAtivavel(codigoBruto);
+/** Link do Google Maps colado pelo cliente (inclusive curto): identifica a empresa. */
+export async function identificarPorLink(codigo: string, link: string): Promise<{ empresa: EmpresaGerada } | Erro> {
+  const placa = await placaAtivavel(codigo);
   if ("erro" in placa) return placa;
-
-  const conta = await contaDoEmail(email.data);
-  if ("erro" in conta) return conta;
-
-  const { data, error } = await clienteSupabaseServico().rpc("ativar_placa_cliente", {
-    p_codigo: placa.codigo,
-    p_ator: conta.id,
-    p_origem: origem,
-    p_place_id: placeId,
-    p_nome: nome,
-    p_link: link,
-  });
-  if (error) {
-    console.error("[ativar] ativar_placa_cliente", error.code);
-    return { erro: "Não foi possível ativar agora. Tente de novo." };
-  }
-  const r = data as { ok: boolean; erro?: string };
-  if (!r.ok) return { erro: MENSAGENS[r.erro ?? ""] ?? "Não foi possível ativar." };
-
-  revalidatePath(`/admin/placas/${placa.codigo}`);
-  revalidatePath(`${ROTA_PREPARO_NFC}/${placa.codigo}`);
-  return { ativada: true, emailEnviado: await enviarAcesso(email.data) };
+  return gerarPorLink(link, {});
 }
 
-/** O link vem do Place ID no servidor (formulário oficial de avaliação), nunca do navegador. */
-export async function ativarComGoogle(codigo: string, email: string, placeId: string, nome: string): Promise<ResultadoAtivacao> {
+/**
+ * O link vem do servidor: writeAReviewUri devolvido pelo Google na confirmação, aceito só
+ * se for do Google; sem ele, o formulário oficial pelo Place ID.
+ */
+export async function ativarComGoogle(codigo: string, email: string, placeId: string, nome: string, link?: string): Promise<ResultadoAtivacao> {
   if (!esquemaPlaceId.safeParse(placeId).success) return { erro: "Selecione uma empresa da lista." };
   const nomeLimpo = z.string().trim().min(1).max(200).safeParse(nome);
   if (!nomeLimpo.success) return { erro: "Nome da empresa inválido." };
-  return ativar(codigo, email, "google_places", placeId, nomeLimpo.data, linkEscreverAvaliacao(placeId));
+  return ativarPlaca(codigo, email, "google_places", placeId, nomeLimpo.data, linkAvaliacaoSeguro(placeId, link));
 }
 
 export async function ativarComLink(codigo: string, email: string, nome: string, link: string): Promise<ResultadoAtivacao> {
@@ -157,5 +56,5 @@ export async function ativarComLink(codigo: string, email: string, nome: string,
   if (!linkGooglePermitido(entrada.data.link)) {
     return { erro: "Use o link de avaliação do Google (search.google.com, g.page ou maps.app.goo.gl)." };
   }
-  return ativar(codigo, email, "manual", null, entrada.data.nome, entrada.data.link);
+  return ativarPlaca(codigo, email, "manual", null, entrada.data.nome, entrada.data.link);
 }

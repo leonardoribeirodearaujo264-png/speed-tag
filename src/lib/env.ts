@@ -22,6 +22,8 @@ const esquemaGoogle = z.object({
     .string()
     .regex(/^[a-z]{2}$/, "use o código do país em minúsculas, ex.: br")
     .default("br"),
+  // Teto de chamadas ao Google por dia (todas as telas somadas): controle de custo.
+  GOOGLE_LIMITE_DIARIO: z.coerce.number().int().min(0).max(1_000_000).default(2000),
 });
 
 export type EnvPublico = z.infer<typeof esquemaPublico>;

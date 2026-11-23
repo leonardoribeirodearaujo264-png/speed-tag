@@ -1,11 +1,12 @@
 "use client";
 
 import { useEffect, useState, useTransition, type FormEvent } from "react";
-import { ArrowLeft, Check, CheckCircle2, ChevronRight, Lightbulb, Link2, Loader2, Mail, MapPin, Search, Star, Zap } from "lucide-react";
-import type { DetalhesEmpresa, EmpresaEncontrada } from "@/lib/google/places";
-import { ativarComGoogle, ativarComLink, pesquisarEmpresa, verDetalhesEmpresa, type ResultadoAtivacao } from "./acoes";
+import { ArrowLeft, Check, CheckCircle2, ChevronRight, ExternalLink, Lightbulb, Link2, Loader2, Mail, MapPin, Search, Star, Wand2, Zap } from "lucide-react";
+import type { EmpresaGerada } from "@/lib/google/gerador";
+import type { EmpresaEncontrada } from "@/lib/google/places";
+import { ativarComGoogle, ativarComLink, identificarPorLink, pesquisarEmpresa, verDetalhesEmpresa, type ResultadoAtivacao } from "./acoes";
 
-type Escolha = { tipo: "google"; empresa: DetalhesEmpresa } | { tipo: "manual"; nome: string; link: string };
+type Escolha = { tipo: "google"; empresa: EmpresaGerada; viaLink?: boolean } | { tipo: "manual"; nome: string; link: string };
 type Etapa = "empresa" | "manual" | "quase" | "sucesso";
 
 const campo =
@@ -109,6 +110,7 @@ export function FormAtivar({ codigo }: { codigo: string }) {
   const [email, setEmail] = useState("");
   const [emailEnviado, setEmailEnviado] = useState(false);
   const [ajuda, setAjuda] = useState(false);
+  const [linkMaps, setLinkMaps] = useState("");
   // Uma sessão do Google por tentativa: agrupa buscas e a escolha da empresa na cobrança.
   const [sessao] = useState(() => crypto.randomUUID());
   const [erro, setErro] = useState("");
@@ -153,14 +155,14 @@ export function FormAtivar({ codigo }: { codigo: string }) {
           executar(async () =>
             concluir(
               escolha.tipo === "google"
-                ? await ativarComGoogle(codigo, email, escolha.empresa.id, escolha.empresa.nome)
+                ? await ativarComGoogle(codigo, email, escolha.empresa.id, escolha.empresa.nome, escolha.empresa.linkAvaliacao)
                 : await ativarComLink(codigo, email, escolha.nome, escolha.link),
             ),
           );
         }}
       >
         <Progresso atual={1} />
-        <button type="button" onClick={() => { setErro(""); setEtapa(escolha.tipo === "google" ? "empresa" : "manual"); }} className="inline-flex w-fit items-center gap-1.5 text-sm text-slate-500 hover:text-slate-800">
+        <button type="button" onClick={() => { setErro(""); setEtapa(escolha.tipo === "google" && !escolha.viaLink ? "empresa" : "manual"); }} className="inline-flex w-fit items-center gap-1.5 text-sm text-slate-500 hover:text-slate-800">
           <ArrowLeft className="size-4" aria-hidden /> Voltar
         </button>
         <div className="text-center">
@@ -183,6 +185,12 @@ export function FormAtivar({ codigo }: { codigo: string }) {
               {escolha.empresa.endereco && (
                 <p className="flex gap-1.5 text-sm text-slate-500"><MapPin className="mt-0.5 size-4 shrink-0" aria-hidden />{escolha.empresa.endereco}</p>
               )}
+              {escolha.empresa.aproximado && (
+                <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">Encontramos pelo nome e local do link. Confira se é a sua empresa.</p>
+              )}
+              <a href={escolha.empresa.linkAvaliacao} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 pt-1 text-sm font-medium text-marca-texto hover:underline">
+                Testar link de avaliação <ExternalLink className="size-3.5" aria-hidden />
+              </a>
             </div>
           ) : (
             <div className="space-y-1.5">
@@ -219,8 +227,32 @@ export function FormAtivar({ codigo }: { codigo: string }) {
         </button>
         <div>
           <p className="text-xl font-semibold tracking-tight text-slate-900">Não encontrou seu negócio?</p>
-          <p className="mt-1 text-sm text-slate-500">Preencha com o nome da empresa e o link de avaliação.</p>
+          <p className="mt-1 text-sm text-slate-500">Cole o link da sua empresa no Google Maps. A gente identifica e gera o link de avaliação.</p>
         </div>
+        <div className="flex flex-col gap-2 rounded-2xl border border-marca-borda bg-marca-claro/40 p-4">
+          <label className="flex flex-col gap-2 text-sm font-medium text-slate-700">
+            Link do Google Maps
+            <input value={linkMaps} onChange={(e) => setLinkMaps(e.target.value)} inputMode="url" placeholder="https://maps.app.goo.gl/..." className={campo} />
+          </label>
+          <span className="text-xs text-slate-500">No Google Maps, abra sua empresa, toque em Compartilhar e copie o link.</span>
+          <BotaoAzul
+            type="button"
+            carregando={ocupado}
+            disabled={linkMaps.trim().length < 8}
+            onClick={() =>
+              executar(async () => {
+                const r = await identificarPorLink(codigo, linkMaps);
+                if ("erro" in r) return setErro(r.erro);
+                setEscolha({ tipo: "google", empresa: r.empresa, viaLink: true });
+                setEtapa("quase");
+              })
+            }
+          >
+            <Wand2 className="size-4" aria-hidden /> Gerar link de avaliação
+          </BotaoAzul>
+        </div>
+        <Erro texto={erro} />
+        <p className="text-center text-xs font-medium tracking-wide text-slate-400 uppercase">ou preencha manualmente</p>
         <label className="flex flex-col gap-2 text-sm font-medium text-slate-700">
           Nome da empresa
           <input name="nome" required minLength={2} maxLength={200} defaultValue={escolha?.tipo === "manual" ? escolha.nome : ""} className={campo} />

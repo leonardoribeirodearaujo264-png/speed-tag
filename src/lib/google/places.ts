@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { envGoogle } from "@/lib/env";
+import { linkEscreverAvaliacao, linkGooglePermitido } from "@/lib/google/dominios";
 
 /**
  * Google Places API (New), sempre no servidor. Cada campo pedido no field mask
@@ -16,10 +17,17 @@ const esquemaLocal = z.object({
   rating: z.number().optional(),
   userRatingCount: z.number().int().optional(),
   nationalPhoneNumber: z.string().optional(),
+  googleMapsLinks: z.object({ writeAReviewUri: z.string().optional() }).optional(),
 });
 
 export type EmpresaEncontrada = { id: string; nome: string; endereco?: string };
-export type DetalhesEmpresa = EmpresaEncontrada & { nota?: number; totalAvaliacoes?: number; telefone?: string };
+export type DetalhesEmpresa = EmpresaEncontrada & {
+  nota?: number;
+  totalAvaliacoes?: number;
+  telefone?: string;
+  /** Link direto para escrever avaliação: googleMapsLinks.writeAReviewUri, ou o formulário oficial pelo Place ID. */
+  linkAvaliacao: string;
+};
 
 function cabecalhos(campos: string) {
   return { "X-Goog-Api-Key": envGoogle().GOOGLE_PLACES_API_KEY, "X-Goog-FieldMask": campos };
@@ -119,7 +127,7 @@ export async function detalhesEmpresa(id: string, sessao?: string): Promise<Deta
   url.searchParams.set("languageCode", "pt-BR");
   if (sessao) url.searchParams.set("sessionToken", sessao);
   const resposta = await fetch(url, {
-    headers: cabecalhos("id,displayName,formattedAddress,rating,userRatingCount,nationalPhoneNumber"),
+    headers: cabecalhos("id,displayName,formattedAddress,rating,userRatingCount,nationalPhoneNumber,googleMapsLinks"),
     cache: "no-store",
     signal: AbortSignal.timeout(8_000),
   });
@@ -133,5 +141,32 @@ export async function detalhesEmpresa(id: string, sessao?: string): Promise<Deta
     nota: local.rating,
     totalAvaliacoes: local.userRatingCount,
     telefone: local.nationalPhoneNumber,
+    linkAvaliacao: linkAvaliacaoSeguro(local.id, local.googleMapsLinks?.writeAReviewUri),
   };
+}
+
+/** Usa o writeAReviewUri do Google quando ele passa na lista de domínios; senão, o formulário oficial. */
+export function linkAvaliacaoSeguro(placeId: string, writeAReviewUri?: string): string {
+  return writeAReviewUri && linkGooglePermitido(writeAReviewUri) ? writeAReviewUri : linkEscreverAvaliacao(placeId);
+}
+
+/** Busca aproximada a partir de um link sem Place ID: nome do lugar, perto das coordenadas do link. */
+export async function buscarPerto(nome: string, latitude?: number, longitude?: number): Promise<EmpresaEncontrada[]> {
+  const resposta = await fetch(`${API_PLACES}:searchText`, {
+    method: "POST",
+    headers: { ...cabecalhos("places.id,places.displayName,places.formattedAddress"), "Content-Type": "application/json" },
+    body: JSON.stringify({
+      textQuery: nome,
+      languageCode: "pt-BR",
+      pageSize: 3,
+      ...(latitude !== undefined && longitude !== undefined
+        ? { locationBias: { circle: { center: { latitude, longitude }, radius: 500 } } }
+        : { regionCode: envGoogle().PLACES_REGIAO_PADRAO.toUpperCase() }),
+    }),
+    cache: "no-store",
+    signal: AbortSignal.timeout(8_000),
+  });
+  if (!resposta.ok) throw new Error(`Google Places Text Search HTTP ${resposta.status}`);
+  const { places } = z.object({ places: z.array(esquemaLocal).default([]) }).parse(await resposta.json());
+  return places.map((local) => ({ id: local.id, nome: local.displayName.text, endereco: local.formattedAddress }));
 }
