@@ -233,6 +233,11 @@ export type Database = {
       admin_liberar_placa: { Args: { p_placa: string }; Returns: Json };
       admin_desativar_placa: { Args: { p_placa: string; p_motivo: string | null }; Returns: Json };
       admin_reativar_placa: { Args: { p_placa: string }; Returns: Json };
+      email_tem_conta: { Args: { p_email: string }; Returns: boolean };
+      ativar_placa_cliente: {
+        Args: { p_codigo: string; p_ator: string; p_origem: OrigemEmpresa; p_place_id: string | null; p_nome: string; p_link: string };
+        Returns: Json;
+      };
       registrar_acesso_invalido: { Args: { p_codigo: string; p_dispositivo?: string | null; p_pais?: string | null }; Returns: undefined };
       resumo_redirecionamento: {
         Args: { p_codigo: string };

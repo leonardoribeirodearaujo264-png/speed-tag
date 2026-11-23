@@ -1,75 +1,72 @@
 import { Suspense } from "react";
-import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { LayoutAutenticacao } from "@/components/auth/layout-autenticacao";
-import { Button } from "@/components/ui/button";
 import { codigoValido, normalizarCodigo } from "@/lib/codigos";
 import { clienteSupabaseServico, clienteSupabaseUsuario } from "@/lib/supabase/servidor";
-import { FormAtivarNfc } from "./form-ativar";
+import { FormAtivar } from "./form-ativar";
 
 // Página com login: navegação espera o servidor (sessão lida a cada requisição).
 export const instant = false;
 
-export const metadata = { title: "Ativar tag NFC", robots: { index: false } };
+export const metadata = { title: "Ativar placa", robots: { index: false } };
+
+function Aviso({ children }: { children: React.ReactNode }) {
+  return <p className="rounded-2xl border border-slate-200 bg-slate-50/60 p-5 text-sm leading-relaxed text-slate-600">{children}</p>;
+}
 
 async function Conteudo({ params }: { params: PageProps<"/ativar/[codigo]">["params"] }) {
   const codigo = normalizarCodigo((await params).codigo);
   if (!codigoValido(codigo)) notFound();
 
-  const { data: tag, error } = await clienteSupabaseServico().from("placas")
-    .select("status, dono_id, nfc_entregue_em, preparada_nfc").eq("codigo", codigo).maybeSingle();
-  if (error) throw new Error("Falha ao consultar tag NFC");
-  if (!tag) notFound();
-  if (tag.status === "desativada") redirect(`/placa/${codigo}`);
-  // Placa de lote só ativa quem a recebeu na conta; sem atribuição, volta para a página pública.
-  if (!tag.preparada_nfc && tag.status !== "atribuida" && tag.status !== "ativa") redirect(`/placa/${codigo}`);
+  const { data: placa, error } = await clienteSupabaseServico()
+    .from("placas")
+    .select("status, dono_id, preparada_nfc, nfc_entregue_em")
+    .eq("codigo", codigo)
+    .maybeSingle();
+  if (error) throw new Error("Falha ao consultar a placa");
+  if (!placa) notFound();
+  if (placa.status === "desativada") redirect(`/placa/${codigo}`);
 
-  const retorno = `/ativar/${codigo}`;
-  if (tag.status === "ativa") {
+  if (placa.status === "ativa") {
     return (
-      <div className="space-y-4 text-sm">
-        <p>Esta tag está ativa. O endereço permanente já abre a avaliação no Google.</p>
-        <a className="font-medium text-marca-texto underline" href={`/t/${codigo}`}>Abrir avaliação no Google</a>
+      <div className="flex flex-col gap-4">
+        <Aviso>Esta placa já está ativa e leva direto para a avaliação no Google.</Aviso>
+        <a href={`/t/${codigo}`} className="flex h-12 items-center justify-center rounded-xl bg-blue-600 font-semibold text-white">
+          Abrir avaliação
+        </a>
       </div>
     );
   }
-  if ((tag.preparada_nfc && !tag.nfc_entregue_em && tag.status !== "atribuida") || tag.status === "reservada") {
-    return <p className="text-sm text-muted-foreground">A tag <strong>{codigo}</strong> aguarda liberação. Fale com quem entregou a plaquinha.</p>;
+  if (placa.status === "reservada" || (placa.preparada_nfc && !placa.nfc_entregue_em && !placa.dono_id)) {
+    return <Aviso>A placa <strong>{codigo}</strong> ainda não foi liberada. Fale com quem vendeu a placa.</Aviso>;
   }
 
   const supabase = await clienteSupabaseUsuario();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) {
-    return (
-      <div className="space-y-4 text-sm">
-        <p>Informe seu e-mail para receber um link de acesso. Se você ainda não tem uma conta, ela será criada pelo mesmo fluxo.</p>
-        <Button render={<Link href={`/entrar?proximo=${encodeURIComponent(retorno)}`} />} nativeButton={false}>
-          Criar conta ou entrar
-        </Button>
-      </div>
-    );
-  }
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
-  const titular = user.id === tag.dono_id;
-  if (tag.status === "atribuida" && !titular) {
+  if (user && placa.dono_id && placa.dono_id !== user.id) {
     return (
-      <div className="space-y-4 text-sm">
-        <p>Entre com o e-mail ao qual esta tag foi atribuída.</p>
+      <div className="flex flex-col gap-4">
+        <Aviso>Esta placa pertence a outra conta. Entre com o e-mail do dono da placa.</Aviso>
         <form action="/auth/sair" method="post">
-          <input type="hidden" name="destino" value={retorno} />
-          <Button type="submit" variant="outline">Sair e trocar de conta</Button>
+          <input type="hidden" name="destino" value={`/ativar/${codigo}`} />
+          <button type="submit" className="text-sm font-medium text-blue-700 hover:underline">Sair e trocar de conta</button>
         </form>
       </div>
     );
   }
 
-  return <FormAtivarNfc codigo={codigo} exigeSegredo={!titular} />;
+  return <FormAtivar codigo={codigo} logado={!!user} />;
 }
 
-export default function AtivarTag({ params }: PageProps<"/ativar/[codigo]">) {
+export default function AtivarPlaca({ params }: PageProps<"/ativar/[codigo]">) {
   return (
-    <LayoutAutenticacao titulo="Ativar tag NFC" subtitulo="Vincule sua plaquinha à empresa que deve receber as avaliações.">
-      <Suspense fallback={<p>Consultando tag...</p>}><Conteudo params={params} /></Suspense>
+    <LayoutAutenticacao titulo="Ative sua placa" subtitulo="Em poucos passos, sua placa passa a levar seus clientes direto para a avaliação no Google.">
+      <Suspense fallback={<div className="h-64 animate-pulse rounded-2xl bg-slate-100" />}>
+        <Conteudo params={params} />
+      </Suspense>
     </LayoutAutenticacao>
   );
 }
