@@ -8,7 +8,9 @@ import { verificarCodigoEmail } from "@/lib/auth-codigo";
 import { urlDoSiteParaLogin } from "@/lib/env";
 import { clienteSupabaseUsuario } from "@/lib/supabase/servidor";
 
-export async function cadastrarCliente(proximo: string, _anterior: { erro?: string; pendente?: boolean }, dados: FormData) {
+type EstadoCadastro = { erro?: string; pendente?: boolean };
+
+export async function cadastrarCliente(proximo: string, _anterior: EstadoCadastro, dados: FormData): Promise<EstadoCadastro> {
   const entrada = z.object({ email: z.email().max(254), password: z.string().min(10).max(72) }).safeParse({
     email: String(dados.get("email") ?? "").trim().toLowerCase(),
     password: dados.get("senha"),
