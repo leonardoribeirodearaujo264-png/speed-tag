@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { BarChart3, Nfc, Zap } from "lucide-react";
 import { LogoCompleta, MarcaCompacta } from "@/components/marca/marca";
 import { ArtePlaca } from "@/components/placa/arte-placa";
-import { gerarQrSvg, svgParaDataUri } from "@/lib/placas/qr";
+import { qrDaArte } from "@/lib/placas/qr";
 
 /** QR ilustrativo do painel da marca: URL fixa, não depende de ambiente. */
 const URL_DEMONSTRACAO = "https://exemplo.com/t/A1B2C3?o=q";
@@ -14,7 +14,7 @@ const DESTAQUES = [
 ] as const;
 
 async function PainelMarca() {
-  const qr = svgParaDataUri(await gerarQrSvg(URL_DEMONSTRACAO));
+  const qr = await qrDaArte(URL_DEMONSTRACAO);
 
   return (
     <aside className="relative hidden overflow-hidden bg-marca-fundo lg:flex lg:flex-col lg:justify-between lg:p-12">

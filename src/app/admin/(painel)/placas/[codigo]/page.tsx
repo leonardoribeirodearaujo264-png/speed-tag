@@ -10,7 +10,7 @@ import { ArtePlaca } from "@/components/placa/arte-placa";
 import { buttonVariants } from "@/components/ui/button";
 import { exigirAdmin } from "@/lib/auth";
 import { buscarPlacaPorCodigo } from "@/lib/placas/consultas";
-import { gerarQrSvg, svgParaDataUri } from "@/lib/placas/qr";
+import { qrDaArte } from "@/lib/placas/qr";
 import { montarSerie } from "@/lib/placas/estatisticas";
 import { MODELOS_ARTE, NOMES_MODELOS, modeloArte } from "@/lib/placas/modelos-arte";
 import { formatarData } from "@/lib/placas/rotulos";
@@ -101,8 +101,8 @@ export default async function DetalhePlaca({ params, searchParams }: PageProps<"
 
   const { criada, modelo: modeloBruto } = await searchParams;
   const modelo = modeloArte(modeloBruto);
-  const [qrSvg, lote, empresa, dono, historico, leituras, recentes, lotes] = await Promise.all([
-    gerarQrSvg(urlQr(placa.codigo)),
+  const [qrDataUri, lote, empresa, dono, historico, leituras, recentes, lotes] = await Promise.all([
+    qrDaArte(urlQr(placa.codigo)),
     placa.lote_id
       ? supabase.from("lotes").select("id, nome").eq("id", placa.lote_id).maybeSingle().then((r) => r.data)
       : Promise.resolve(null),
@@ -128,8 +128,7 @@ export default async function DetalhePlaca({ params, searchParams }: PageProps<"
     supabase.from("lotes").select("id, nome").order("criado_em", { ascending: false }).then((r) => r.data ?? []),
   ]);
   const { serie, totalNfc, totalQr, ultimaLeitura } = recentes;
-  const qrDataUri = svgParaDataUri(qrSvg);
-  const base = `/api/admin/placas/${placa.codigo}`;
+    const base = `/api/admin/placas/${placa.codigo}`;
 
   return (
     <div>

@@ -14,8 +14,16 @@ export const TAMANHO_PNG_PADRAO = 1024;
 export const TAMANHO_PNG_MIN = 128;
 export const TAMANHO_PNG_MAX = 4096;
 
-export function gerarQrSvg(texto: string): Promise<string> {
-  return QRCode.toString(texto, { ...OPCOES, type: "svg" });
+export function gerarQrSvg(texto: string, { transparente = false }: { transparente?: boolean } = {}): Promise<string> {
+  // Transparente só dentro da arte da placa: a margem fica sobre o branco do cartão
+  // e não cobre a moldura arredondada do quadrado do QR.
+  const color = transparente ? { ...OPCOES.color, light: "#ffffff00" } : OPCOES.color;
+  return QRCode.toString(texto, { ...OPCOES, color, type: "svg" });
+}
+
+/** QR em data URI pronto para a arte da placa (fundo transparente). */
+export async function qrDaArte(texto: string): Promise<string> {
+  return svgParaDataUri(await gerarQrSvg(texto, { transparente: true }));
 }
 
 export function gerarQrPng(texto: string, largura = TAMANHO_PNG_PADRAO): Promise<Buffer> {

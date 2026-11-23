@@ -9,13 +9,13 @@ export const MODELOS_ARTE = {
     rotulo: "Azul",
     arquivo: "/placas/modelo-azul.jpg",
     // Quadrado do QR: x 608 a 919, y 576 a 881.
-    qr: { centroX: 764, centroY: 728, lado: 262 },
+    qr: { centroX: 764, centroY: 728, lado: 318 },
   },
   preta: {
     rotulo: "Preta",
     arquivo: "/placas/modelo-preta.jpg",
     // Quadrado do QR: x 606 a 919, y 573 a 882.
-    qr: { centroX: 762, centroY: 727, lado: 262 },
+    qr: { centroX: 762, centroY: 727, lado: 318 },
   },
 } as const;
 

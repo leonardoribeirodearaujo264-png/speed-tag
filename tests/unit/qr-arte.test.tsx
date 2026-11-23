@@ -6,7 +6,7 @@ import { describe, expect, it } from "vitest";
 import { ArtePlaca } from "@/components/placa/arte-placa";
 import { fundoArteDataUri } from "@/lib/placas/fundo-arte";
 import { NOMES_MODELOS } from "@/lib/placas/modelos-arte";
-import { gerarQrPng, gerarQrSvg, svgParaDataUri } from "@/lib/placas/qr";
+import { gerarQrPng, gerarQrSvg, qrDaArte } from "@/lib/placas/qr";
 import { urlNfc, urlQr } from "@/lib/placas/urls";
 
 const BASE = "https://placa.exemplo.com";
@@ -43,7 +43,7 @@ describe("QR", () => {
 describe("arte da placa no Satori (PNG)", () => {
   it.each(NOMES_MODELOS)("modelo %s: renderiza com a arte do cliente e gera PNG do tamanho pedido", async (modelo) => {
     const { ImageResponse } = await import("next/og");
-    const qr = svgParaDataUri(await gerarQrSvg(urlQr("A1B2C3", BASE)));
+    const qr = await qrDaArte(urlQr("A1B2C3", BASE));
     const fundo = await fundoArteDataUri(modelo);
     expect(fundo.startsWith("data:image/jpeg;base64,")).toBe(true);
     const resposta = new ImageResponse(<ArtePlaca codigo="A1B2C3" qrDataUri={qr} tamanho={1000} modelo={modelo} fundo={fundo} />, {

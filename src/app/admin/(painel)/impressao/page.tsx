@@ -6,7 +6,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { exigirAdmin } from "@/lib/auth";
 import { buscarPlacaPorCodigo, listarCodigosDoLote } from "@/lib/placas/consultas";
 import { MODELOS_ARTE, NOMES_MODELOS, modeloArte } from "@/lib/placas/modelos-arte";
-import { gerarQrSvg, svgParaDataUri } from "@/lib/placas/qr";
+import { qrDaArte } from "@/lib/placas/qr";
 import { urlQr } from "@/lib/placas/urls";
 import { BotaoImprimir } from "./botao-imprimir";
 
@@ -54,7 +54,7 @@ export default async function Impressao({ searchParams }: PageProps<"/admin/impr
   const pagina = Math.min(f.pagina, paginas);
   const visiveis = codigos.slice((pagina - 1) * POR_PAGINA, pagina * POR_PAGINA);
   const artes = await Promise.all(
-    visiveis.map(async (codigo) => ({ codigo, qr: svgParaDataUri(await gerarQrSvg(urlQr(codigo))) })),
+    visiveis.map(async (codigo) => ({ codigo, qr: await qrDaArte(urlQr(codigo)) })),
   );
   const ladoPx = Math.round(f.cm * PX_POR_CM);
 
