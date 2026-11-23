@@ -44,3 +44,21 @@ export function caminhoInternoSeguro(valor: string | null | undefined, padrao = 
   }
   return valor;
 }
+
+/** Destino padrão do cliente depois de entrar. */
+export const DESTINO_CLIENTE = "/painel/empresas";
+
+/**
+ * Para onde ir depois de entrar pelo login único (/entrar). Quem pediu um destino
+ * específico (ativação de placa, link do e-mail) vai para ele; sem destino, o ADM vai
+ * ao painel administrativo e o cliente ao painel dele.
+ */
+export async function destinoAposLogin(
+  supabase: Awaited<ReturnType<typeof clienteSupabaseUsuario>>,
+  proximo: string | null | undefined,
+): Promise<string> {
+  const pedido = caminhoInternoSeguro(proximo, DESTINO_CLIENTE);
+  if (pedido !== DESTINO_CLIENTE) return pedido;
+  const { data: admin } = await supabase.rpc("eh_admin");
+  return admin === true ? "/admin/placas" : DESTINO_CLIENTE;
+}

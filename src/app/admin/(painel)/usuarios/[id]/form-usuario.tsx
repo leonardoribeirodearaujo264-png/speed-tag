@@ -3,6 +3,7 @@
 import { useActionState, useEffect } from "react";
 import { Loader2, Save } from "lucide-react";
 import { toast } from "sonner";
+import { classeCampo } from "@/components/admin/ui";
 import { Button } from "@/components/ui/button";
 import type { Perfil } from "@/lib/supabase/tipos";
 import { salvarUsuario, type EstadoEdicaoUsuario } from "./acoes";
@@ -16,9 +17,6 @@ type Props = {
   administrador: boolean;
   grupo: Perfil["grupo_cliente"];
 };
-
-const classeCampo =
-  "h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-[15px] text-slate-900 outline-none focus:border-marca focus:ring-4 focus:ring-marca/15 disabled:bg-slate-50 disabled:text-slate-500";
 
 export function FormUsuario({ usuarioId, nome, telefone, limite, bloqueado, administrador, grupo }: Props) {
   const [estado, acao, salvando] = useActionState<EstadoEdicaoUsuario, FormData>(salvarUsuario, { tipo: "inicial" });
@@ -76,7 +74,7 @@ export function FormUsuario({ usuarioId, nome, telefone, limite, bloqueado, admi
 
       {administrador && <p className="text-sm text-slate-500">As permissões desta conta administrativa são protegidas.</p>}
 
-      <Button type="submit" size="lg" className="self-start px-5" disabled={salvando}>
+      <Button type="submit" size="lg" className="h-11 w-full px-5 sm:w-auto sm:self-start" disabled={salvando}>
         {salvando ? <Loader2 className="animate-spin" aria-hidden /> : <Save aria-hidden />}
         {salvando ? "Salvando..." : "Salvar alterações"}
       </Button>

@@ -3,6 +3,18 @@ import { cn } from "cn";
 
 /** Peças visuais compartilhadas pelas telas do admin. */
 
+/** Campo de formulário do admin: 44 px de altura (toque) e foco com a cor da marca. */
+export const classeCampo =
+  "h-11 w-full min-w-0 rounded-xl border border-slate-200 bg-white px-3 text-[15px] text-slate-900 outline-none focus:border-marca focus:ring-4 focus:ring-marca/15 disabled:bg-slate-50 disabled:text-slate-500";
+
+/** Select de barra de filtros: largura total no celular, natural a partir do sm. */
+export const classeSelectFiltro =
+  "h-11 w-full min-w-0 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none focus:border-marca focus:ring-4 focus:ring-marca/15 sm:w-auto";
+
+/** Campo de busca com ícone à esquerda (o ícone fica num wrapper relative). */
+export const classeBusca =
+  "h-11 w-full min-w-0 rounded-xl border border-slate-200 bg-white pr-3 pl-9 text-sm outline-none focus:border-marca focus:ring-4 focus:ring-marca/15";
+
 export function CabecalhoPagina({
   titulo,
   descricao,
@@ -15,13 +27,14 @@ export function CabecalhoPagina({
   sobretitulo?: ReactNode;
 }) {
   return (
-    <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
+    <div className="mb-6 flex flex-wrap items-end justify-between gap-4 sm:mb-8">
       <div className="min-w-0">
         {sobretitulo && <div className="mb-1 text-sm font-medium text-marca-texto">{sobretitulo}</div>}
-        <h1 className="text-2xl font-semibold tracking-tight text-slate-900 sm:text-[28px]">{titulo}</h1>
+        <h1 className="text-2xl font-semibold tracking-tight break-words text-slate-900 sm:text-[28px]">{titulo}</h1>
         {descricao && <p className="mt-1.5 text-[15px] text-slate-500">{descricao}</p>}
       </div>
-      {acoes && <div className="flex flex-wrap items-center gap-2">{acoes}</div>}
+      {/* No celular as ações ocupam a linha inteira e dividem o espaço; não cortam nem estouram. */}
+      {acoes && <div className="flex w-full flex-wrap items-center gap-2 max-sm:*:grow sm:w-auto">{acoes}</div>}
     </div>
   );
 }
@@ -36,8 +49,8 @@ export function Painel({ children, className }: { children: ReactNode; className
 
 export function TituloPainel({ titulo, descricao, acao }: { titulo: string; descricao?: string; acao?: ReactNode }) {
   return (
-    <div className="flex items-start justify-between gap-3 px-5 pt-5 pb-4 sm:px-6">
-      <div>
+    <div className="flex flex-wrap items-start justify-between gap-3 px-4 pt-5 pb-4 sm:px-6">
+      <div className="min-w-0">
         <h2 className="text-[15px] font-semibold text-slate-900">{titulo}</h2>
         {descricao && <p className="mt-0.5 text-sm text-slate-500">{descricao}</p>}
       </div>
@@ -69,14 +82,14 @@ export function CartaoIndicador({
   tom?: Tom;
 }) {
   return (
-    <Painel className="p-5">
+    <Painel className="min-w-0 p-4 sm:p-5">
       <div className="flex items-start justify-between gap-3">
         <p className="text-sm font-medium text-slate-500">{rotulo}</p>
-        <span className={cn("flex size-9 items-center justify-center rounded-xl ring-1", TONS[tom])}>
+        <span className={cn("flex size-9 shrink-0 items-center justify-center rounded-xl ring-1", TONS[tom])}>
           <Icone className="size-[18px]" aria-hidden />
         </span>
       </div>
-      <p className="mt-3 text-3xl font-semibold tracking-tight text-slate-900 tabular-nums">
+      <p className="mt-3 text-2xl font-semibold sm:text-3xl tracking-tight text-slate-900 tabular-nums">
         {typeof valor === "number" ? valor.toLocaleString("pt-BR") : valor}
       </p>
       {detalhe && <p className="mt-1 text-sm text-slate-500">{detalhe}</p>}
@@ -96,7 +109,7 @@ export function EstadoVazio({
   acoes?: ReactNode;
 }) {
   return (
-    <div className="flex flex-col items-center px-6 py-14 text-center">
+    <div className="flex flex-col items-center px-4 py-12 text-center sm:px-6 sm:py-14">
       <span className="flex size-12 items-center justify-center rounded-2xl bg-marca-claro ring-1 ring-marca-borda">
         <Icone className="size-6 text-marca-texto" aria-hidden />
       </span>
@@ -145,8 +158,10 @@ export function GraficoLeituras({ serie }: { serie: Ponto[] }) {
   const rotulos = serie.filter((_, i) => i % Math.ceil(serie.length / 6) === 0 || i === serie.length - 1);
 
   return (
-    <figure>
-      <svg viewBox={`0 0 ${largura} ${altura}`} className="h-auto w-full" role="img" aria-label="Leituras por dia, NFC e QR Code">
+    <figure className="min-w-0">
+      {/* No celular o gráfico mantém largura mínima legível e rola só dentro do próprio bloco. */}
+      <div className="-mx-1 overflow-x-auto overscroll-x-contain px-1">
+      <svg viewBox={`0 0 ${largura} ${altura}`} className="h-auto w-full min-w-[520px] sm:min-w-0" role="img" aria-label="Leituras por dia, NFC e QR Code">
         <defs>
           <linearGradient id="grad-nfc" x1="0" x2="0" y1="0" y2="1">
             <stop offset="0%" stopColor="#2dd4ff" />
@@ -156,7 +171,7 @@ export function GraficoLeituras({ serie }: { serie: Ponto[] }) {
         {marcas.map((m) => (
           <g key={m}>
             <line x1={margem.esquerda} x2={largura - margem.direita} y1={y(m)} y2={y(m)} stroke="#e2e8f0" strokeDasharray={m === 0 ? undefined : "3 4"} />
-            <text x={margem.esquerda - 8} y={y(m)} dy="0.32em" textAnchor="end" className="fill-slate-400 text-[11px]">
+            <text x={margem.esquerda - 8} y={y(m)} dy="0.32em" textAnchor="end" className="fill-slate-400 text-[11px] max-sm:text-[15px]">
               {m}
             </text>
           </g>
@@ -177,12 +192,13 @@ export function GraficoLeituras({ serie }: { serie: Ponto[] }) {
         {rotulos.map((p) => {
           const i = serie.indexOf(p);
           return (
-            <text key={p.dia} x={margem.esquerda + coluna * i + coluna / 2} y={altura - 6} textAnchor="middle" className="fill-slate-400 text-[11px]">
+            <text key={p.dia} x={margem.esquerda + coluna * i + coluna / 2} y={altura - 6} textAnchor="middle" className="fill-slate-400 text-[11px] max-sm:text-[15px]">
               {formatoDia.format(new Date(p.dia))}
             </text>
           );
         })}
       </svg>
+      </div>
       <figcaption className="mt-3 flex items-center gap-5 text-xs text-slate-500">
         <span className="flex items-center gap-1.5">
           <span className="size-2.5 rounded-sm bg-gradient-to-b from-marca-ciano to-marca" /> NFC

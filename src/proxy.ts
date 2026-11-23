@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import type { Database } from "@/lib/supabase/tipos";
+import { COOKIE_SESSAO_TEMPORARIA, opcoesDaSessao } from "@/lib/supabase/sessao";
 
 /**
  * Renova a sessão do Supabase nas áreas logadas e faz a checagem otimista
@@ -20,7 +21,8 @@ export async function proxy(request: NextRequest) {
       setAll: (novos) => {
         for (const { name, value } of novos) request.cookies.set(name, value);
         resposta = NextResponse.next({ request });
-        for (const { name, value, options } of novos) resposta.cookies.set(name, value, options);
+        const temporaria = request.cookies.get(COOKIE_SESSAO_TEMPORARIA)?.value === "1";
+        for (const { name, value, options } of novos) resposta.cookies.set(name, value, opcoesDaSessao(options, temporaria));
       },
     },
   });

@@ -26,7 +26,7 @@ export default async function ListaLotes() {
           <h1 className="text-2xl font-semibold tracking-tight">Lotes</h1>
           <p className="text-sm text-muted-foreground">Produção em quantidade, com exportação para a gráfica.</p>
         </div>
-        <Link href="/admin/lotes/novo" className={buttonVariants()}>
+        <Link href="/admin/lotes/novo" className={buttonVariants({ size: "lg", className: "px-4 max-sm:w-full" })}>
           <Plus aria-hidden /> Criar lote
         </Link>
       </div>
@@ -47,20 +47,24 @@ export default async function ListaLotes() {
               <TableRow>
                 <TableHead>Nome</TableHead>
                 <TableHead className="text-right">Placas</TableHead>
-                <TableHead className="hidden sm:table-cell">Revendedor</TableHead>
+                <TableHead className="hidden md:table-cell">Revendedor</TableHead>
                 <TableHead className="hidden md:table-cell">Criado em</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {lotes.map((l) => (
                 <TableRow key={l.id}>
-                  <TableCell>
-                    <Link href={`/admin/lotes/${l.id}`} className="font-medium text-marca-texto hover:underline">
+                  <TableCell className="whitespace-normal">
+                    <Link href={`/admin/lotes/${l.id}`} className="inline-flex min-h-11 items-center font-medium break-words text-marca-texto hover:underline md:min-h-0">
                       {l.nome}
                     </Link>
+                    {/* No celular as colunas escondidas viram uma linha de apoio sob o nome. */}
+                    <span className="block text-xs text-muted-foreground md:hidden">
+                      {[l.revendedor, formatarData(l.criado_em)].filter(Boolean).join(" · ")}
+                    </span>
                   </TableCell>
                   <TableCell className="text-right tabular-nums">{l.quantidade.toLocaleString("pt-BR")}</TableCell>
-                  <TableCell className="hidden text-muted-foreground sm:table-cell">{l.revendedor ?? ""}</TableCell>
+                  <TableCell className="hidden text-muted-foreground md:table-cell">{l.revendedor ?? ""}</TableCell>
                   <TableCell className="hidden text-muted-foreground md:table-cell">{formatarData(l.criado_em)}</TableCell>
                 </TableRow>
               ))}

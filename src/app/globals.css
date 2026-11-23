@@ -138,3 +138,32 @@
     @apply font-sans;
   }
 }
+/* Mobile: campos com 16 px (o iPhone não dá zoom ao focar), sem rolagem lateral e toque rápido. */
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+  body {
+    overflow-x: clip;
+    -webkit-tap-highlight-color: transparent;
+  }
+}
+
+@layer components {
+  .pt-seguro {
+    padding-top: max(env(safe-area-inset-top), 0px);
+  }
+  .pb-seguro {
+    padding-bottom: max(env(safe-area-inset-bottom), 1rem);
+  }
+}
+
+/* Fora de camada de propósito: vence as classes text-sm dos componentes só no celular. */
+@media (max-width: 767.98px) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]),
+  select,
+  textarea {
+    font-size: 16px;
+  }
+}

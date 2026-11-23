@@ -28,11 +28,31 @@ export async function vincularEmpresaPlaca(empresa: string, _anterior: string, d
   }
   const supabase = await clienteSupabaseUsuario();
   const { data, error } = await supabase.rpc("speed_tag_vincular_empresa", { p_empresa: empresa, p_codigo: codigo });
-  if (error || !data) return "Não foi possível vincular. Confira se a placa e a empresa pertencem à sua conta e se a empresa tem um link de avaliação.";
+  if (error?.message === "LIMITE_PLACAS") return "O titular atingiu o limite de placas da conta.";
+  if (error || !data) return "Não foi possível vincular. Confira o código, a disponibilidade da placa e o link de avaliação da empresa.";
   revalidatePath("/painel");
   revalidatePath("/painel/empresas");
+  revalidatePath(`/painel/empresas/${empresa}`);
+  revalidatePath(`/admin/empresas/${empresa}`);
+  revalidatePath("/admin/placas");
   revalidatePath(`/admin/placas/${codigo}`);
   return `Placa ${codigo} vinculada à empresa.`;
+}
+
+export async function removerPlacaDaEmpresa(empresa: string, codigo: string, _anterior: string, dados: FormData) {
+  if (!z.uuid().safeParse(empresa).success || !codigoValido(codigo) || dados.get("confirmar") !== "on") {
+    return "Confirme a remoção da placa.";
+  }
+  const supabase = await clienteSupabaseUsuario();
+  const { data, error } = await supabase.rpc("speed_tag_remover_placa_da_empresa", { p_empresa: empresa, p_codigo: codigo });
+  if (error?.code === "PGRST202") return "A remoção depende da atualização do banco de dados.";
+  if (error || !data) return "Não foi possível remover esta placa da empresa.";
+  revalidatePath("/painel");
+  revalidatePath("/painel/empresas");
+  revalidatePath(`/painel/empresas/${empresa}`);
+  revalidatePath(`/admin/empresas/${empresa}`);
+  revalidatePath(`/admin/placas/${codigo}`);
+  return "Placa removida da empresa.";
 }
 
 export async function definirSenhaCliente(_anterior: { mensagem: string; ok: boolean }, dados: FormData) {

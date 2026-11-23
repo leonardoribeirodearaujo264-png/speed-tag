@@ -1,9 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ativarComLink, pesquisarEmpresa, reivindicarTag } from "@/app/ativar/[codigo]/acoes";
+import { GET as abrirAtivacao } from "@/app/painel/ativar/route";
+import { registrarPlacaPropria } from "@/app/painel/acoes";
 import { gerarSegredoNfc, hashSegredoNfc } from "@/lib/placas/segredo-nfc";
 
 const mocks = vi.hoisted(() => ({
-  getUser: vi.fn(), consulta: vi.fn(), rpc: vi.fn(), servicoRpc: vi.fn(), google: vi.fn(),
+  getUser: vi.fn(), consulta: vi.fn(), rpc: vi.fn(), servicoRpc: vi.fn(), servicoConsulta: vi.fn(), google: vi.fn(),
 }));
 vi.mock("next/cache", () => ({ refresh: vi.fn(), revalidatePath: vi.fn() }));
 vi.mock("@/lib/google/gerador", () => ({ pesquisarNoGoogle: mocks.google }));
@@ -16,10 +18,31 @@ vi.mock("@/lib/supabase/servidor", () => ({
       return consulta;
     },
   }),
-  clienteSupabaseServico: () => ({ rpc: mocks.servicoRpc }),
+  clienteSupabaseServico: () => ({
+    rpc: mocks.servicoRpc,
+    from: () => {
+      const consulta = { select: () => consulta, eq: () => consulta, maybeSingle: mocks.servicoConsulta };
+      return consulta;
+    },
+  }),
 }));
 
 const codigo = "NFC123";
+
+it("bloqueia a ação antiga de criar placa no painel do cliente", async () => {
+  expect(await registrarPlacaPropria()).toMatch(/somente administradores/i);
+  expect(mocks.servicoRpc).not.toHaveBeenCalled();
+  expect(mocks.getUser).not.toHaveBeenCalled();
+});
+
+it("mantém a empresa ao abrir a ativação de uma placa pela ficha", () => {
+  const empresa = "11111111-1111-4111-8111-111111111111";
+  const url = `https://www.speedtag.online/painel/ativar?origem=empresas&empresa=${empresa}`;
+  const valido = abrirAtivacao(new Request(`${url}&codigo=${codigo}`));
+  expect(valido.headers.get("location")).toBe(`https://www.speedtag.online/painel/empresas?placa=${codigo}&empresa=${empresa}`);
+  const invalido = abrirAtivacao(new Request(`${url}&codigo=abc`));
+  expect(invalido.headers.get("location")).toBe(`https://www.speedtag.online/painel/empresas/${empresa}?erro=codigo`);
+});
 const usuario = "11111111-1111-4111-8111-111111111111";
 const url = "https://g.page/r/exemplo/review";
 
@@ -30,14 +53,21 @@ beforeEach(() => {
 });
 
 describe("ativação com conta de cliente", () => {
-  it("exige sessão antes da busca Google", async () => {
+  it("sem sessão, só busca no Google para placa ainda ativável (ativação pelo NFC)", async () => {
     mocks.getUser.mockResolvedValue({ data: { user: null } });
+    mocks.servicoConsulta.mockResolvedValue({ data: { status: "ativa" }, error: null });
     expect(await pesquisarEmpresa(codigo, "Loja")).toHaveProperty("erro");
     expect(mocks.google).not.toHaveBeenCalled();
+
+    mocks.servicoConsulta.mockResolvedValue({ data: { status: "disponivel" }, error: null });
+    mocks.google.mockResolvedValue({ empresas: [] });
+    expect(await pesquisarEmpresa(codigo, "Loja")).toEqual({ empresas: [] });
+    expect(mocks.google).toHaveBeenCalledWith("Loja", expect.objectContaining({ usuarioId: undefined }));
   });
 
-  it("exige placa atribuída e visível pela RLS antes da busca e da ativação", async () => {
+  it("ativação direta exige placa atribuída e visível pela RLS", async () => {
     mocks.consulta.mockResolvedValue({ data: null });
+    mocks.servicoConsulta.mockResolvedValue({ data: null, error: null });
     expect(await pesquisarEmpresa(codigo, "Loja")).toHaveProperty("erro");
     expect(await ativarComLink(codigo, "Loja", url)).toHaveProperty("erro");
     expect(mocks.google).not.toHaveBeenCalled();

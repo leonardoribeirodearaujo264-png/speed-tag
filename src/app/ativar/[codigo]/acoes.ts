@@ -10,7 +10,8 @@ import { codigoValido } from "@/lib/codigos";
 import { hashSegredoNfc } from "@/lib/placas/segredo-nfc";
 import { clienteSupabaseServico, clienteSupabaseUsuario } from "@/lib/supabase/servidor";
 import type { OrigemEmpresa } from "@/lib/supabase/tipos";
-import type { Erro, ResultadoAtivacao } from "@/lib/placas/ativacao";
+import { placaAtivavel as placaAtivavelPublica, type Erro, type ResultadoAtivacao } from "@/lib/placas/ativacao";
+import { solicitarAtivacaoPorEmail, type ResultadoPedido } from "@/lib/placas/ativacao-email";
 
 async function placaAtivavel(codigo: string): Promise<{ usuarioId: string } | Erro> {
   if (!codigoValido(codigo)) return { erro: "Placa inválida." };
@@ -69,26 +70,37 @@ export async function ativarComEmpresaSalva(codigo: string, _anterior: string, d
   redirect(`/painel/empresas?ativada=${encodeURIComponent(codigo)}`);
 }
 
+/**
+ * Quem pode buscar empresa: o dono logado da placa (cota da conta) ou qualquer visitante de
+ * uma placa ainda ativável (cota por IP), porque a ativação pelo NFC não exige login.
+ */
+async function contextoBusca(codigo: string): Promise<{ usuarioId?: string } | Erro> {
+  const logado = await placaAtivavel(codigo);
+  if (!("erro" in logado)) return { usuarioId: logado.usuarioId };
+  const publica = await placaAtivavelPublica(codigo);
+  return "erro" in publica ? publica : {};
+}
+
 /** Token da sessão de busca do Google (UUID gerado na tela): só repassado se for válido. */
 const sessaoValida = (sessao?: string) => (sessao && z.uuid().safeParse(sessao).success ? sessao : undefined);
 
 export async function pesquisarEmpresa(codigo: string, consulta: string, sessao?: string): Promise<{ empresas: EmpresaEncontrada[] } | Erro> {
-  const placa = await placaAtivavel(codigo);
-  if ("erro" in placa) return placa;
-  return pesquisarNoGoogle(consulta, { sessao: sessaoValida(sessao), usuarioId: placa.usuarioId });
+  const ctx = await contextoBusca(codigo);
+  if ("erro" in ctx) return ctx;
+  return pesquisarNoGoogle(consulta, { sessao: sessaoValida(sessao), usuarioId: ctx.usuarioId });
 }
 
 export async function verDetalhesEmpresa(codigo: string, placeId: string, sessao?: string): Promise<{ empresa: EmpresaGerada } | Erro> {
-  const placa = await placaAtivavel(codigo);
-  if ("erro" in placa) return placa;
-  return gerarPorPlaceId(placeId, { sessao: sessaoValida(sessao), usuarioId: placa.usuarioId });
+  const ctx = await contextoBusca(codigo);
+  if ("erro" in ctx) return ctx;
+  return gerarPorPlaceId(placeId, { sessao: sessaoValida(sessao), usuarioId: ctx.usuarioId });
 }
 
 /** Link do Google Maps colado pelo cliente (inclusive curto): identifica a empresa. */
 export async function identificarPorLink(codigo: string, link: string): Promise<{ empresa: EmpresaGerada } | Erro> {
-  const placa = await placaAtivavel(codigo);
-  if ("erro" in placa) return placa;
-  return gerarPorLink(link, { usuarioId: placa.usuarioId });
+  const ctx = await contextoBusca(codigo);
+  if ("erro" in ctx) return ctx;
+  return gerarPorLink(link, { usuarioId: ctx.usuarioId });
 }
 
 /**
@@ -111,4 +123,31 @@ export async function ativarComLink(codigo: string, nome: string, link: string):
     return { erro: "Use o link de avaliação do Google (search.google.com, g.page ou maps.app.goo.gl)." };
   }
   return ativarPlaca(codigo, "manual", null, entrada.data.nome, entrada.data.link);
+}
+
+export type { ResultadoPedido };
+
+/**
+ * Ativação pelo NFC sem login: grava o pedido e manda o e-mail de confirmação.
+ * Empresa do Google (Place ID) ou link colado; o link final sempre é montado no servidor.
+ */
+export async function solicitarAtivacao(
+  codigo: string,
+  email: string,
+  empresa: { tipo: "google"; placeId: string; nome: string; link?: string } | { tipo: "manual"; nome: string; link: string },
+): Promise<ResultadoPedido> {
+  const nome = z.string().trim().min(2, "Digite o nome da empresa.").max(200).safeParse(empresa.nome);
+  if (!nome.success) return { erro: nome.error.issues[0]?.message ?? "Nome da empresa inválido." };
+  if (empresa.tipo === "google") {
+    if (!esquemaPlaceId.safeParse(empresa.placeId).success) return { erro: "Selecione uma empresa da lista." };
+    return solicitarAtivacaoPorEmail({
+      codigo, email, origem: "google_places", placeId: empresa.placeId, nome: nome.data,
+      link: linkAvaliacaoSeguro(empresa.placeId, empresa.link),
+    });
+  }
+  const link = z.string().trim().max(2048).safeParse(empresa.link);
+  if (!link.success || !linkGooglePermitido(link.data)) {
+    return { erro: "Use o link de avaliação do Google (search.google.com, g.page ou maps.app.goo.gl)." };
+  }
+  return solicitarAtivacaoPorEmail({ codigo, email, origem: "manual", placeId: null, nome: nome.data, link: link.data });
 }

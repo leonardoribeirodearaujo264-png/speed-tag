@@ -5,6 +5,8 @@ import { connection } from "next/server";
 import { envPublico, envServidor } from "@/lib/env";
 import type { Database } from "./tipos";
 
+import { COOKIE_SESSAO_TEMPORARIA, opcoesDaSessao } from "./sessao";
+
 /**
  * Cliente com a sessão do usuário (cookies). Respeita RLS.
  * Usar em Server Components, Route Handlers e Server Actions.
@@ -22,7 +24,8 @@ export async function clienteSupabaseUsuario() {
       getAll: () => loja.getAll(),
       setAll: (novos) => {
         try {
-          for (const { name, value, options } of novos) loja.set(name, value, options);
+          const temporaria = loja.get(COOKIE_SESSAO_TEMPORARIA)?.value === "1";
+          for (const { name, value, options } of novos) loja.set(name, value, opcoesDaSessao(options, temporaria));
         } catch {
           // Server Component não pode gravar cookie; o proxy renova a sessão.
         }

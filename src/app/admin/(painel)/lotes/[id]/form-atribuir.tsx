@@ -3,11 +3,9 @@
 import { useActionState, useEffect, useRef } from "react";
 import { Loader2, UserPlus } from "lucide-react";
 import { toast } from "sonner";
+import { classeCampo } from "@/components/admin/ui";
 import { Button } from "@/components/ui/button";
 import { atribuirDoLoteAcao, type EstadoAtribuirLote } from "./acoes";
-
-const classeCampo =
-  "h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-[15px] outline-none focus:border-marca focus:ring-4 focus:ring-marca/15";
 
 export function FormAtribuirLote({ loteId, disponiveis }: { loteId: string; disponiveis: number }) {
   const [estado, acao, enviando] = useActionState<EstadoAtribuirLote, FormData>(atribuirDoLoteAcao, { tipo: "inicial" });

@@ -14,7 +14,11 @@ O Supabase Auth emite os links de acesso e recuperação. Para enviá-los pelo R
 
 Configure a URL pública do Supabase Auth como `https://www.speedtag.online`. Permita o retorno em `https://www.speedtag.online/auth/confirmar` e `https://speedtag.online/auth/confirmar` enquanto os dois endereços servirem o aplicativo. O retorno usa o mesmo endereço do navegador para manter o cookie de autenticação. No desenvolvimento, permita também a URL local de retorno configurada em `AUTH_REDIRECT_SITE_URL`. Use os modelos de e-mail do Supabase com `{{ .ConfirmationURL }}` e mantenha o rastreamento de cliques desativado no Resend para estes links.
 
-Se o domínio usar `send.speedtag.online` para outro provedor, configure um subdomínio de retorno exclusivo no Resend e publique os registros MX e TXT exibidos por ele nesse subdomínio.
+Use os registros exibidos em **Resend → Domains → Records**. Se o painel indicar **Verified** e **Forge Ready**, consulte o log de envio antes de alterar os registros DNS.
+
+No Supabase, em **Authentication → Email Templates**, use [o modelo de acesso](supabase/templates/codigo-acesso.html) em **Magic Link** e **Confirm sign up**. Use [o modelo de recuperação](supabase/templates/recuperar-senha.html) em **Reset Password**. Eles incluem `{{ .Token }}` para a digitação do código e `{{ .ConfirmationURL }}` para o acesso pelo link.
+
+Se o envio falhar, confira o estado de envio em **Resend → Domains** e o evento da tentativa em **Supabase → Logs → Auth**. Procure a solicitação de acesso (`/otp`) ou recuperação (`/recover`) pelo horário da tentativa.
 
 [SMTP no Resend](https://resend.com/changelog/smtp-service) · [SMTP personalizado no Supabase](https://supabase.com/docs/guides/auth/auth-smtp)
 

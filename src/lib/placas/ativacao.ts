@@ -1,4 +1,3 @@
-import { randomBytes } from "node:crypto";
 import { createClient } from "@supabase/supabase-js";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
@@ -39,7 +38,7 @@ export async function placaAtivavel(codigoBruto: string): Promise<{ codigo: stri
   return { codigo };
 }
 
-/** Encontra a conta do e-mail ou cria uma já confirmada (senha aleatória: o acesso é por link no e-mail). */
+/** Encontra a conta do e-mail ou cria por convite (o cliente define a senha pelo link do e-mail). */
 export async function contaDoEmail(email: string): Promise<{ id: string; nova: boolean } | Erro> {
   const servico = clienteSupabaseServico();
   const { data: existente, error } = await servico.rpc("usuario_por_email", { p_email: email });
@@ -53,10 +52,10 @@ export async function contaDoEmail(email: string): Promise<{ id: string; nova: b
     return { id: existente, nova: false };
   }
 
-  const criado = await servico.auth.admin.createUser({
-    email,
-    password: randomBytes(24).toString("base64url"),
-    email_confirm: true,
+  // Sem senha provisória: o Supabase cria a conta e manda o convite; o cliente cria a senha no link.
+  const criado = await servico.auth.admin.inviteUserByEmail(email, {
+    redirectTo: `${urlDoSite()}/auth/confirmar`,
+    data: { senha_pendente: true, origem_cadastro: "admin" },
   });
   if (criado.error || !criado.data.user) {
     console.error("[ativar] createUser", criado.error?.status, criado.error?.code);
@@ -71,9 +70,7 @@ async function enviarAcesso(email: string): Promise<boolean> {
   const anonimo = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
-  const retorno = new URL("/auth/confirmar", urlDoSite());
-  retorno.searchParams.set("proximo", "/painel");
-  const { error } = await anonimo.auth.signInWithOtp({ email, options: { emailRedirectTo: retorno.toString(), shouldCreateUser: false } });
+  const { error } = await anonimo.auth.signInWithOtp({ email, options: { emailRedirectTo: `${urlDoSite()}/auth/confirmar`, shouldCreateUser: false } });
   if (error) console.error("[ativar] envio do acesso por e-mail", error.status, error.code);
   return !error;
 }
@@ -110,5 +107,6 @@ export async function ativarPlaca(codigoBruto: string, emailBruto: string, orige
 
   revalidatePath(`/admin/placas/${placa.codigo}`);
   revalidatePath(`${ROTA_PREPARO_NFC}/${placa.codigo}`);
-  return { ativada: true, emailEnviado: await enviarAcesso(email.data) };
+  // Conta nova já recebeu o convite (criar senha); conta existente recebe o link de acesso.
+  return { ativada: true, emailEnviado: conta.nova ? true : await enviarAcesso(email.data) };
 }

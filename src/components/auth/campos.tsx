@@ -50,7 +50,7 @@ export function forcaSenha(senha: string): 0 | 1 | 2 | 3 {
 }
 
 const ROTULO_FORCA = ["Muito curta", "Fraca", "Boa", "Forte"] as const;
-const COR_FORCA = ["bg-red-400", "bg-amber-400", "bg-marca-claro0", "bg-emerald-500"] as const;
+const COR_FORCA = ["bg-red-400", "bg-amber-400", "bg-marca", "bg-emerald-500"] as const;
 
 type CampoSenhaProps = Omit<CampoProps, "icone" | "type"> & { icone: CampoProps["icone"]; medidor?: boolean };
 
@@ -83,8 +83,9 @@ export function CampoSenha({ medidor = false, onChange, ...props }: CampoSenhaPr
         <button
           type="button"
           onClick={() => setVisivel((v) => !v)}
-          className="absolute right-1.5 bottom-1.5 flex size-9 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600"
+          className="absolute right-0.5 bottom-0.5 flex size-11 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600 focus-visible:ring-2 focus-visible:ring-marca/40 focus-visible:outline-none"
           aria-label={visivel ? "Ocultar senha" : "Mostrar senha"}
+          aria-pressed={visivel}
         >
           {visivel ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
         </button>

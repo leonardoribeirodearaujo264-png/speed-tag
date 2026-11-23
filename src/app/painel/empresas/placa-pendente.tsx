@@ -8,11 +8,12 @@ import { Painel } from "@/components/admin/ui";
 import { linkGooglePermitido } from "@/lib/google/dominios";
 import { clienteSupabaseServico } from "@/lib/supabase/servidor";
 
-export async function PlacaPendente({ codigo, idUsuario, email, empresas }: {
+export async function PlacaPendente({ codigo, idUsuario, email, empresas, empresaPreferida }: {
   codigo: string;
   idUsuario: string;
   email: string;
   empresas: { id: string; nome: string; link_avaliacao: string }[];
+  empresaPreferida?: string;
 }) {
   const { data: placa, error } = await clienteSupabaseServico().from("placas")
     .select("status, dono_id, preparada_nfc, nfc_entregue_em").eq("codigo", codigo).maybeSingle();
@@ -26,15 +27,15 @@ export async function PlacaPendente({ codigo, idUsuario, email, empresas }: {
   return (
     <Painel className="mb-5 grid gap-4 p-4 sm:p-5">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="flex items-center gap-2 font-semibold"><Nfc className="size-5 text-marca-texto" aria-hidden /> Ativar placa {codigo}</h2>
-        <Link href="/painel/empresas" className="text-sm font-medium text-marca-texto underline">Agora não</Link>
+        <h2 className="flex min-w-0 items-center gap-2 break-words font-semibold"><Nfc className="size-5 text-marca-texto" aria-hidden /> Ativar placa {codigo}</h2>
+        <Link href="/painel/empresas" className="inline-flex min-h-11 items-center text-sm font-medium text-marca-texto underline sm:min-h-0">Agora não</Link>
       </div>
       {error ? <p role="alert" className="text-sm text-red-700">Não foi possível consultar a placa agora.</p> : podeVincular ? (
         <ReivindicarTag codigo={codigo} />
       ) : deveAtivar ? (
         <div className="max-w-md">
           {empresasSalvas.length > 0 && (
-            <EmpresaSalva codigo={codigo} empresas={empresasSalvas} />
+            <EmpresaSalva codigo={codigo} empresas={empresasSalvas} empresaPreferida={empresaPreferida} />
           )}
           <FormAtivar codigo={codigo} email={email} />
         </div>

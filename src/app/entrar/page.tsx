@@ -2,51 +2,46 @@ import { Suspense } from "react";
 import Link from "next/link";
 import type { Metadata } from "next";
 import { LayoutAutenticacao } from "@/components/auth/layout-autenticacao";
-import { MensagemErro } from "@/components/auth/campos";
 import { Skeleton } from "@/components/ui/skeleton";
 import { caminhoInternoSeguro } from "@/lib/auth";
-import { FormEntrar } from "./form-entrar";
-import { FormCadastro, FormSenha } from "./form-senha";
+import { FormSenha } from "./form-senha";
 
 export const metadata: Metadata = { title: "Entrar" };
 
+const ERROS: Record<string, string> = {
+  link: "O link do e-mail expirou ou já foi usado. Entre com sua senha ou peça um novo link.",
+};
+
 async function Conteudo({ searchParams }: { searchParams: PageProps<"/entrar">["searchParams"] }) {
-  const { proximo, erro, cadastro } = await searchParams;
+  const { proximo, erro } = await searchParams;
   const destino = caminhoInternoSeguro(typeof proximo === "string" ? proximo : null, "/painel/empresas");
-  const primeiroAcesso = erro === "link" || destino.startsWith("/ativar/") || destino.startsWith("/painel/empresas?placa=");
-  const login = `/entrar?proximo=${encodeURIComponent(destino)}`;
-  if (cadastro === "1") {
-    return (
-      <div className="space-y-4">
-        <h2 className="text-lg font-semibold">Criar conta de cliente</h2>
-        <FormCadastro destino={destino} />
-        <Link href={login} className="text-sm font-medium text-marca-texto underline">Já tenho conta</Link>
-      </div>
-    );
-  }
+  const sufixo = destino === "/painel/empresas" ? "" : `?proximo=${encodeURIComponent(destino)}`;
   return (
-    <div className="flex flex-col gap-5">
-      <FormSenha destino={destino} />
-      <Link href={`${login}&cadastro=1`} className="text-sm font-medium text-marca-texto underline">Criar conta</Link>
-      <Link href={`/recuperar-senha?proximo=${encodeURIComponent(destino)}`} className="text-sm font-medium text-marca-texto underline">Esqueci minha senha</Link>
-      <details open={primeiroAcesso ? true : undefined} className="rounded-xl border p-3">
-        <summary className="cursor-pointer font-medium text-marca-texto">Primeiro acesso ou entrar por e-mail</summary>
-        <div className="mt-3 space-y-3">
-          {erro === "link" && <MensagemErro>O link expirou ou já foi usado. Peça um novo abaixo.</MensagemErro>}
-          <FormEntrar proximo={destino} />
-        </div>
-      </details>
+    <div className="flex flex-col gap-6">
+      <FormSenha destino={destino} erroInicial={typeof erro === "string" ? ERROS[erro] : undefined} />
+      <div className="flex items-center gap-3 text-xs text-slate-400" aria-hidden>
+        <span className="h-px flex-1 bg-slate-200" /> ou <span className="h-px flex-1 bg-slate-200" />
+      </div>
+      <Link
+        href={`/entrar/codigo${sufixo}`}
+        className="flex h-12 items-center justify-center rounded-xl border border-slate-200 text-[15px] font-medium text-slate-700 transition hover:border-slate-300 hover:bg-slate-50 focus-visible:ring-4 focus-visible:ring-marca/20 focus-visible:outline-none"
+      >
+        Entrar com código por e-mail
+      </Link>
+      <p className="text-center text-sm text-slate-500">
+        Ainda não tem uma conta?{" "}
+        <Link href={`/cadastro${sufixo}`} className="font-semibold text-marca-texto hover:underline">
+          Cadastre-se
+        </Link>
+      </p>
     </div>
   );
 }
 
 export default function PaginaEntrar({ searchParams }: PageProps<"/entrar">) {
   return (
-    <LayoutAutenticacao
-      titulo="Acesse sua conta"
-      subtitulo="Acesse suas empresas e placas com e-mail e senha, ou solicite acesso por e-mail."
-    >
-      <Suspense fallback={<Skeleton className="h-40 w-full rounded-xl" />}>
+    <LayoutAutenticacao titulo="Bem-vindo de volta" subtitulo="Entre para gerenciar suas placas e empresas.">
+      <Suspense fallback={<Skeleton className="h-80 w-full rounded-xl" />}>
         <Conteudo searchParams={searchParams} />
       </Suspense>
     </LayoutAutenticacao>

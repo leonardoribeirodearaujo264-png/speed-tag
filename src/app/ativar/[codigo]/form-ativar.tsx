@@ -1,14 +1,14 @@
 "use client";
 
 import { useState, useTransition, type FormEvent } from "react";
-import { ArrowLeft, Check, ChevronRight, ExternalLink, Lightbulb, Loader2, Mail, MapPin, Search, Star, Wand2, Zap } from "lucide-react";
+import { ArrowLeft, Check, ChevronRight, ExternalLink, Lightbulb, Loader2, Mail, MailCheck, MapPin, Search, Star, Wand2, Zap } from "lucide-react";
 import { useRouter } from "next/navigation";
 import type { EmpresaGerada } from "@/lib/google/gerador";
 import type { EmpresaEncontrada } from "@/lib/google/places";
-import { ativarComGoogle, identificarPorLink, pesquisarEmpresa, verDetalhesEmpresa, type ResultadoAtivacao } from "./acoes";
+import { ativarComGoogle, identificarPorLink, pesquisarEmpresa, solicitarAtivacao, verDetalhesEmpresa, type ResultadoAtivacao } from "./acoes";
 
 type Escolha = { empresa: EmpresaGerada; viaLink?: boolean };
-type Etapa = "empresa" | "manual" | "quase";
+type Etapa = "empresa" | "manual" | "quase" | "enviado";
 
 const campo =
   "h-12 w-full rounded-xl border border-slate-200 bg-slate-50/60 px-4 text-base text-slate-900 outline-none transition placeholder:text-slate-400 hover:border-slate-300 focus:border-marca focus:bg-white focus:ring-4 focus:ring-marca/15";
@@ -66,7 +66,14 @@ function Erro({ texto }: { texto: string }) {
   return texto ? <p role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{texto}</p> : null;
 }
 
-export function FormAtivar({ codigo, email }: { codigo: string; email: string }) {
+/**
+ * Ativação da placa. Sem `email` (visitante do NFC): pede o e-mail e manda a confirmação;
+ * a placa só vai para a conta depois do link. Com `email` (cliente logado): ativa na hora.
+ */
+export function FormAtivar({ codigo, email: emailConta, emailSugerido }: { codigo: string; email?: string; emailSugerido?: string }) {
+  const publico = !emailConta;
+  const [email, setEmail] = useState(emailConta ?? emailSugerido ?? "");
+  const [enviadoPara, setEnviadoPara] = useState("");
   const router = useRouter();
   const [etapa, setEtapa] = useState<Etapa>("empresa");
   const [consulta, setConsulta] = useState("");
@@ -106,6 +113,31 @@ export function FormAtivar({ codigo, email }: { codigo: string; email: string })
     router.replace(`/painel/empresas?ativada=${encodeURIComponent(codigo)}`);
   }
 
+  if (etapa === "enviado") {
+    return (
+      <div className="flex flex-col items-center gap-4 text-center" role="status">
+        <Progresso atual={2} />
+        <span className="flex size-16 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600 ring-8 ring-emerald-50/60">
+          <MailCheck className="size-8" aria-hidden />
+        </span>
+        <div>
+          <p className="text-2xl font-semibold tracking-tight text-slate-900">Verifique seu e-mail</p>
+          <p className="mt-2 text-[15px] leading-relaxed text-slate-600">
+            Enviamos um link de confirmação para <strong className="font-semibold break-all text-slate-900">{enviadoPara}</strong>.
+            Abra o e-mail e toque no botão para concluir a ativação da placa.
+          </p>
+        </div>
+        <ul className="w-full space-y-2 rounded-2xl bg-slate-50 p-4 text-left text-sm text-slate-600">
+          <li>O link vale por tempo limitado e só pode ser usado uma vez.</li>
+          <li>Não chegou? Confira o spam ou a aba Promoções.</li>
+        </ul>
+        <button type="button" onClick={() => { setErro(""); setEtapa("quase"); }} className="text-sm font-medium text-marca-texto hover:underline">
+          Corrigir o e-mail ou enviar de novo
+        </button>
+      </div>
+    );
+  }
+
   if (etapa === "quase" && escolha) {
     return (
       <form
@@ -113,11 +145,17 @@ export function FormAtivar({ codigo, email }: { codigo: string; email: string })
         className="flex flex-col gap-5"
         onSubmit={(e) => {
           e.preventDefault();
-          executar(async () =>
-            concluir(
-              await ativarComGoogle(codigo, escolha.empresa.id, escolha.empresa.nome, escolha.empresa.linkAvaliacao),
-            ),
-          );
+          executar(async () => {
+            if (!publico) {
+              return concluir(await ativarComGoogle(codigo, escolha.empresa.id, escolha.empresa.nome, escolha.empresa.linkAvaliacao));
+            }
+            const r = await solicitarAtivacao(codigo, email, {
+              tipo: "google", placeId: escolha.empresa.id, nome: escolha.empresa.nome, link: escolha.empresa.linkAvaliacao,
+            });
+            if ("erro" in r) return setErro(r.erro);
+            setEnviadoPara(r.email);
+            setEtapa("enviado");
+          });
         }}
       >
         <Progresso atual={1} />
@@ -126,13 +164,29 @@ export function FormAtivar({ codigo, email }: { codigo: string; email: string })
         </button>
         <div className="text-center">
           <p className="text-2xl font-semibold tracking-tight text-slate-900">Quase lá!</p>
-          <p className="mt-1 text-sm text-slate-500">Confirme a empresa e a conta que vai gerenciar a placa.</p>
+          <p className="mt-1 text-sm text-slate-500">
+            {publico ? "Informe o e-mail que vai gerenciar a placa. Enviaremos um link para confirmar." : "Confirme a empresa e a conta que vai gerenciar a placa."}
+          </p>
         </div>
         <label className="flex flex-col gap-2 text-sm font-medium text-slate-700">
           E-mail
           <span className="relative">
             <Mail className="pointer-events-none absolute top-1/2 left-4 size-4 -translate-y-1/2 text-slate-400" aria-hidden />
-            <input type="email" value={email} readOnly className={`${campo} pl-11`} />
+            <input
+              type="email"
+              name="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              readOnly={!publico}
+              required
+              maxLength={254}
+              autoComplete="email"
+              inputMode="email"
+              autoCapitalize="none"
+              spellCheck={false}
+              placeholder="voce@empresa.com.br"
+              className={`${campo} pl-11`}
+            />
           </span>
         </label>
 
@@ -154,7 +208,7 @@ export function FormAtivar({ codigo, email }: { codigo: string; email: string })
 
         <Erro texto={erro} />
         <BotaoAzul type="submit" carregando={ocupado} disabled={!email.trim()}>
-          <Zap className="size-4" aria-hidden /> Ativar placa
+          {publico ? <><Mail className="size-4" aria-hidden /> Enviar link de confirmação</> : <><Zap className="size-4" aria-hidden /> Ativar placa</>}
         </BotaoAzul>
       </form>
     );
@@ -216,9 +270,9 @@ export function FormAtivar({ codigo, email }: { codigo: string; email: string })
           placeholder="Ex.: Padaria Pão Quente, Piracicaba"
           aria-label="Nome da empresa"
           maxLength={180}
-          className={`${campo} pr-12 pl-11`}
+          className={`${campo} pr-14 pl-11`}
         />
-        <button type="submit" disabled={ocupado} aria-label="Buscar" className="absolute top-1/2 right-1.5 flex size-9 -translate-y-1/2 items-center justify-center rounded-lg bg-marca text-white shadow-sm transition hover:brightness-110">
+        <button type="submit" disabled={ocupado} aria-label="Buscar" className="absolute top-1/2 right-0.5 flex size-11 -translate-y-1/2 items-center justify-center rounded-lg bg-marca text-white shadow-sm transition hover:brightness-110">
           {ocupado && !empresas ? <Loader2 className="size-5 animate-spin" /> : <Search className="size-5" />}
         </button>
       </form>
@@ -263,10 +317,10 @@ export function FormAtivar({ codigo, email }: { codigo: string; email: string })
       )}
 
       <div className="flex flex-col items-center gap-2 border-t border-slate-100 pt-5 text-sm">
-        <button type="button" onClick={() => { setErro(""); setEtapa("manual"); }} className="font-medium text-marca-texto hover:underline">
+        <button type="button" onClick={() => { setErro(""); setEtapa("manual"); }} className="min-h-11 px-2 font-medium text-marca-texto hover:underline">
           Não encontrou seu negócio?
         </button>
-        <button type="button" onClick={() => setAjuda((v) => !v)} className="text-slate-500 underline-offset-2 hover:underline" aria-expanded={ajuda}>
+        <button type="button" onClick={() => setAjuda((v) => !v)} className="min-h-11 px-2 text-slate-500 underline-offset-2 hover:underline" aria-expanded={ajuda}>
           Precisa de ajuda?
         </button>
         {ajuda && (

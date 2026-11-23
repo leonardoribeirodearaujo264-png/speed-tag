@@ -1,15 +1,12 @@
-"use client";
+import { DialogoEmpresa } from "@/components/placa/dialogo-empresa";
+import { FormPlacaComprada } from "./form-placa-comprada";
 
-import { useActionState } from "react";
-import { Button } from "@/components/ui/button";
-import { registrarPlacaPropria } from "./acoes";
-
-export function RegistrarPlacaPropria({ empresas = false }: { empresas?: boolean }) {
-  const [erro, acao, pendente] = useActionState(registrarPlacaPropria.bind(null, empresas), "");
+export function AdicionarPlacaComprada({ empresa, codigoInvalido }: { empresa: string; codigoInvalido: boolean }) {
   return (
-    <form action={acao} className="space-y-2">
-      <Button type="submit" disabled={pendente}>{pendente ? "Cadastrando..." : "Cadastrar minha tag NFC"}</Button>
-      {erro && <p role="alert" className="text-sm text-destructive">{erro}</p>}
-    </form>
+    <DialogoEmpresa tipo="placa" botao="Adicionar placa" abertoInicial={codigoInvalido}
+      descricao="Digite o código impresso na placa que você recebeu.">
+      <FormPlacaComprada empresas empresa={empresa} />
+      {codigoInvalido && <p role="alert" className="mt-2 text-sm text-red-700">Confira o código impresso na placa.</p>}
+    </DialogoEmpresa>
   );
 }

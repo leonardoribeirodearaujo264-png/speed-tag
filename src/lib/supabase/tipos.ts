@@ -166,6 +166,24 @@ export type ResultadoDefinirAdmin =
   | { ok: true; usuario_id: string }
   | { ok: false; erro: "NAO_ENCONTRADO" | "PROPRIO_USUARIO" };
 
+export type AtivacaoPendente = {
+  id: string;
+  placa_id: string;
+  email: string;
+  conta_nova: boolean;
+  origem: OrigemEmpresa;
+  place_id: string | null;
+  nome: string;
+  link: string;
+  criada_em: string;
+  expira_em: string;
+  concluida_em: string | null;
+  usuario_id: string | null;
+  resultado: string | null;
+};
+
+export type ResultadoConclusaoAtivacoes = { ativadas: string[]; recusadas: string[] };
+
 export type Database = {
   public: {
     Tables: {
@@ -176,11 +194,14 @@ export type Database = {
       leituras: Tabela<Leitura, "placa_id" | "origem">;
       historico_placa: Tabela<HistoricoPlaca, "placa_id" | "acao">;
       acessos_invalidos: Tabela<AcessoInvalido, "codigo_tentado">;
+      speed_tag_ativacoes_pendentes: Tabela<AtivacaoPendente, "placa_id" | "email" | "conta_nova" | "origem" | "nome" | "link">;
     };
     Views: { [_ in never]: never };
     Functions: {
       speed_tag_cadastrar_empresa: { Args: { p_dono: string; p_nome: string; p_email: string; p_link: string | null }; Returns: string };
-      speed_tag_editar_empresa: { Args: { p_empresa: string; p_nome: string; p_email: string; p_link: string | null }; Returns: boolean };
+      speed_tag_editar_empresa: { Args: { p_empresa: string; p_nome: string; p_email: string | null; p_link: string | null }; Returns: boolean };
+      speed_tag_editar_empresa_completa: { Args: { p_empresa: string; p_nome: string; p_email: string | null; p_link: string | null }; Returns: boolean };
+      speed_tag_remover_placa_da_empresa: { Args: { p_empresa: string; p_codigo: string }; Returns: boolean };
       speed_tag_vincular_empresa: { Args: { p_empresa: string; p_codigo: string }; Returns: boolean };
       speed_tag_editar_cliente_grupo: {
         Args: { p_usuario: string; p_nome: string | null; p_telefone: string | null; p_bloqueado: boolean; p_limite: number | null; p_grupo: Perfil["grupo_cliente"] };
@@ -194,7 +215,6 @@ export type Database = {
         Args: { p_usuario: string; p_nome: string | null; p_telefone: string | null; p_bloqueado: boolean; p_limite: number | null };
         Returns: Json;
       };
-      speed_tag_criar_placa_propria: { Args: { p_codigo: string }; Returns: boolean };
       speed_tag_admin_transferir: { Args: { p_codigo: string; p_usuario: string }; Returns: boolean };
       speed_tag_reivindicar_nfc: { Args: { p_codigo: string; p_hash: string | null }; Returns: boolean };
       placas_preparar_nfc: { Args: { p_codigo: string }; Returns: string };
@@ -264,6 +284,8 @@ export type Database = {
       email_tem_conta: { Args: { p_email: string }; Returns: boolean };
       consumir_cota_google: { Args: { p_chave: string; p_limite: number; p_janela_segundos: number }; Returns: boolean };
       usuario_por_email: { Args: { p_email: string }; Returns: string | null };
+      speed_tag_registrar_envio: { Args: { p_email: string; p_tipo: string; p_limite: number; p_janela_minutos: number }; Returns: boolean };
+      speed_tag_concluir_ativacoes: { Args: Record<string, never>; Returns: Json };
       ativar_placa_cliente: {
         Args: { p_codigo: string; p_ator: string; p_origem: OrigemEmpresa; p_place_id: string | null; p_nome: string; p_link: string };
         Returns: Json;

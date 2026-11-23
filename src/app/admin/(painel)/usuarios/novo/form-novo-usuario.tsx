@@ -2,11 +2,9 @@
 
 import { useActionState } from "react";
 import { Loader2, UserPlus } from "lucide-react";
+import { classeCampo } from "@/components/admin/ui";
 import { Button } from "@/components/ui/button";
 import { criarUsuarioAcao, type EstadoNovoUsuario } from "./acoes";
-
-const classeCampo =
-  "h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-[15px] text-slate-900 outline-none focus:border-marca focus:ring-4 focus:ring-marca/15";
 
 export function FormNovoUsuario({ grupo }: { grupo: "revendedor" | "comprador" }) {
   const [estado, acao, criando] = useActionState<EstadoNovoUsuario, FormData>(criarUsuarioAcao, {
@@ -51,7 +49,7 @@ export function FormNovoUsuario({ grupo }: { grupo: "revendedor" | "comprador" }
         </p>
       )}
 
-      <Button type="submit" size="lg" className="self-start px-5" disabled={criando}>
+      <Button type="submit" size="lg" className="h-11 w-full px-5 sm:w-auto sm:self-start" disabled={criando}>
         {criando ? <Loader2 className="animate-spin" aria-hidden /> : <UserPlus aria-hidden />}
         {criando ? "Criando..." : "Criar conta do cliente"}
       </Button>

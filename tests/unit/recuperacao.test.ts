@@ -1,38 +1,48 @@
 import { beforeEach, expect, it, vi } from "vitest";
-import { NextRequest } from "next/server";
 import { confirmarCodigoRecuperacao, solicitarRecuperacao } from "@/app/recuperar-senha/acoes";
 import { entrarComCodigo } from "@/app/entrar/acoes";
-import { GET } from "@/app/auth/confirmar/route";
+import { finalizarConfirmacao } from "@/app/auth/confirmar/acoes";
 
 const mocks = vi.hoisted(() => ({
-  reset: vi.fn(), exchange: vi.fn(), rpc: vi.fn(), verificar: vi.fn(),
+  reset: vi.fn(), verificar: vi.fn(), sessao: vi.fn(), troca: vi.fn(), rpc: vi.fn(), cookies: new Map<string, string>(),
 }));
-vi.mock("@/lib/env", () => ({ urlDoSiteParaLogin: () => "https://www.speedtag.online" }));
-vi.mock("next/headers", () => ({ headers: async () => new Headers({ host: "www.speedtag.online" }) }));
+vi.mock("@/lib/env", () => ({
+  urlDoSiteParaLogin: () => "https://www.speedtag.online",
+  envPublico: () => ({ NEXT_PUBLIC_SUPABASE_URL: "https://x.supabase.co", NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "chave-publica-de-teste" }),
+}));
+vi.mock("next/headers", () => ({
+  headers: async () => new Headers({ host: "www.speedtag.online" }),
+  cookies: async () => ({
+    get: (nome: string) => (mocks.cookies.has(nome) ? { value: mocks.cookies.get(nome) } : undefined),
+    set: (nome: string, valor: string) => mocks.cookies.set(nome, valor),
+    delete: (nome: string) => mocks.cookies.delete(nome),
+  }),
+}));
+vi.mock("@supabase/supabase-js", () => ({ createClient: () => ({ auth: { resetPasswordForEmail: mocks.reset } }) }));
 vi.mock("@/lib/supabase/servidor", () => ({
   clienteSupabaseUsuario: async () => ({
-    auth: { resetPasswordForEmail: mocks.reset, exchangeCodeForSession: mocks.exchange, verifyOtp: mocks.verificar },
+    auth: { verifyOtp: mocks.verificar, setSession: mocks.sessao, exchangeCodeForSession: mocks.troca },
     rpc: mocks.rpc,
   }),
+  clienteSupabaseServico: () => ({ from: () => ({ select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: null }) }) }) }) }),
 }));
 
 const empresas = "/painel/empresas?placa=SP75R1";
-const origem = "https://www.speedtag.online";
+const tokens = { tipo: "sessao" as const, accessToken: "token-de-acesso-teste", refreshToken: "token-de-renovacao" };
 
 beforeEach(() => {
   vi.resetAllMocks();
-  mocks.rpc.mockResolvedValue({ error: null });
+  mocks.cookies.clear();
+  mocks.rpc.mockResolvedValue({ data: null, error: null });
 });
 
-it("solicita recuperação preservando a placa escaneada no retorno", async () => {
+it("pede a recuperação sem PKCE, com retorno puro e o destino guardado em cookie", async () => {
   mocks.reset.mockResolvedValue({ error: null });
   const dados = new FormData();
   dados.set("email", "Pessoa@teste.dev");
   expect(await solicitarRecuperacao(empresas, { tipo: "inicial" }, dados)).toEqual({ tipo: "enviado", email: "pessoa@teste.dev" });
-  const callback = new URL("/auth/confirmar", origem);
-  callback.searchParams.set("recuperar", "1");
-  callback.searchParams.set("proximo", empresas);
-  expect(mocks.reset).toHaveBeenCalledWith("pessoa@teste.dev", { redirectTo: callback.toString() });
+  expect(mocks.reset).toHaveBeenCalledWith("pessoa@teste.dev", { redirectTo: "https://www.speedtag.online/auth/confirmar" });
+  expect(mocks.cookies.get("st_proximo")).toBe(empresas);
 });
 
 it("não confirma o envio quando o Supabase recusa a solicitação", async () => {
@@ -50,7 +60,6 @@ it("verifica o código de recuperação e preserva a placa no endereço da próx
     digest: expect.stringContaining(`/recuperar-senha/nova?proximo=${encodeURIComponent(empresas)}`),
   });
   expect(mocks.verificar).toHaveBeenCalledWith({ email: "pessoa@teste.dev", token: "123456", type: "recovery" });
-  expect(mocks.rpc).toHaveBeenCalledWith("garantir_perfil");
 });
 
 it("usa o código de acesso com a finalidade de login", async () => {
@@ -68,36 +77,41 @@ it("não abre a sessão se o código estiver expirado", async () => {
   const dados = new FormData();
   dados.set("codigo", "123456");
   expect(await confirmarCodigoRecuperacao(empresas, "pessoa@teste.dev", "", dados)).toMatch(/expirado/);
+});
+
+it("link de recuperação grava a sessão e segue para a nova senha com o destino guardado", async () => {
+  mocks.cookies.set("st_proximo", empresas);
+  mocks.sessao.mockResolvedValue({ data: { user: { id: "cliente", user_metadata: {} } }, error: null });
+  expect(await finalizarConfirmacao({ ...tokens, fluxo: "recovery" })).toEqual({
+    destino: `/recuperar-senha/nova?proximo=${encodeURIComponent(empresas)}`,
+  });
+  expect(mocks.sessao).toHaveBeenCalledWith({ access_token: tokens.accessToken, refresh_token: tokens.refreshToken });
+});
+
+it("conta criada pelo NFC conclui a placa e vai criar a senha", async () => {
+  mocks.sessao.mockResolvedValue({ data: { user: { id: "cliente", user_metadata: { senha_pendente: true } } }, error: null });
+  mocks.rpc.mockImplementation(async (nome: string) =>
+    nome === "speed_tag_concluir_ativacoes" ? { data: { ativadas: ["SP75R1"], recusadas: [] }, error: null } : { data: null, error: null });
+  expect(await finalizarConfirmacao({ ...tokens, fluxo: "signup" })).toEqual({
+    destino: `/criar-senha?proximo=${encodeURIComponent("/painel/empresas?ativada=SP75R1")}`,
+  });
+  expect(mocks.rpc).toHaveBeenCalledWith("speed_tag_concluir_ativacoes");
+});
+
+it("conta existente vincula a placa e entra direto, sem nova senha", async () => {
+  mocks.sessao.mockResolvedValue({ data: { user: { id: "cliente", user_metadata: {} } }, error: null });
+  mocks.rpc.mockImplementation(async (nome: string) =>
+    nome === "speed_tag_concluir_ativacoes" ? { data: { ativadas: ["SP75R1"], recusadas: [] }, error: null } : { data: null, error: null });
+  expect(await finalizarConfirmacao({ ...tokens, fluxo: "magiclink" })).toEqual({ destino: "/painel/empresas?ativada=SP75R1" });
+});
+
+it("recusa sessão inválida sem chamar o banco", async () => {
+  mocks.sessao.mockResolvedValue({ data: { user: null }, error: { status: 401, code: "bad_jwt" } });
+  expect(await finalizarConfirmacao({ ...tokens, fluxo: null })).toMatchObject({ erro: expect.stringMatching(/expirou/) });
   expect(mocks.rpc).not.toHaveBeenCalled();
 });
 
-it("uma sessão de recuperação segue para a tela de nova senha", async () => {
-  mocks.exchange.mockResolvedValue({ data: { redirectType: "recovery" }, error: null });
-  const callback = new URL("/auth/confirmar", origem);
-  callback.searchParams.set("recuperar", "1");
-  callback.searchParams.set("code", "codigo-de-teste");
-  callback.searchParams.set("sb_flow_id", "fluxo-de-teste");
-  callback.searchParams.set("proximo", empresas);
-  const resposta = await GET(new NextRequest(callback));
-  expect(mocks.exchange).toHaveBeenCalledWith("codigo-de-teste", { flowId: "fluxo-de-teste" });
-  const destino = new URL(resposta.headers.get("location")!);
-  expect(destino.pathname).toBe("/recuperar-senha/nova");
-  expect(destino.searchParams.get("proximo")).toBe(empresas);
-});
-
-it("recusa um código de login como link de recuperação", async () => {
-  mocks.exchange.mockResolvedValue({ data: { redirectType: null }, error: null });
-  const resposta = await GET(new NextRequest(`${origem}/auth/confirmar?recuperar=1&code=codigo-de-teste`));
-  const destino = new URL(resposta.headers.get("location")!);
-  expect(destino.pathname).toBe("/recuperar-senha");
-  expect(destino.searchParams.get("erro")).toBe("link");
-});
-
-it("o primeiro acesso abre Empresas com a placa da leitura", async () => {
-  mocks.exchange.mockResolvedValue({ data: { redirectType: null }, error: null });
-  const callback = new URL("/auth/confirmar", origem);
-  callback.searchParams.set("code", "codigo-de-teste");
-  callback.searchParams.set("proximo", empresas);
-  const resposta = await GET(new NextRequest(callback));
-  expect(resposta.headers.get("location")).toBe(`${origem}${empresas}`);
+it("recusa token_hash com finalidade desconhecida", async () => {
+  expect(await finalizarConfirmacao({ tipo: "token_hash", tokenHash: "hash-de-teste-123", fluxo: "outra" })).toMatchObject({ erro: expect.any(String) });
+  expect(mocks.verificar).not.toHaveBeenCalled();
 });

@@ -11,7 +11,7 @@ type EstadoEmpresa = { mensagem: string; ok: boolean };
 
 const cadastro = z.object({
   nome: z.string().trim().min(1).max(200),
-  email: z.email().max(254),
+  email: z.union([z.email().max(254), z.literal("")]),
   link: z.string().trim().max(2048),
 });
 
@@ -25,6 +25,7 @@ export async function salvarEmpresa(id: string | null, admin: boolean, _anterior
     return { ok: false, mensagem: "Confira o nome e o e-mail da empresa." };
   }
   const { nome, email, link } = entrada.data;
+  if (!id && !email) return { ok: false, mensagem: "Informe um e-mail para cadastrar a empresa." };
   if (link && !linkGooglePermitido(link)) return { ok: false, mensagem: "Informe um link de avaliação do Google." };
 
   const supabase = admin ? (await exigirAdmin("/admin/empresas")).supabase : await clienteSupabaseUsuario();
@@ -39,16 +40,21 @@ export async function salvarEmpresa(id: string | null, admin: boolean, _anterior
   }
 
   const { data, error } = id
-    ? await supabase.rpc("speed_tag_editar_empresa", { p_empresa: id, p_nome: nome, p_email: email, p_link: link || null })
+    ? await supabase.rpc(dados.has("editar_link") ? "speed_tag_editar_empresa_completa" : "speed_tag_editar_empresa", { p_empresa: id, p_nome: nome, p_email: email || null, p_link: link || null })
     : await supabase.rpc("speed_tag_cadastrar_empresa", { p_dono: dono, p_nome: nome, p_email: email, p_link: link || null });
   if (error || !data) {
     return { ok: false, mensagem: error?.code === "23505"
       ? "Já existe uma empresa com esse nome na conta."
-      : "Não foi possível salvar. Confira se a conta está liberada e tente novamente." };
+      : error?.code === "PGRST202" ? "A edição completa depende da atualização do banco de dados."
+        : "Não foi possível salvar. Confira se a conta está liberada e tente novamente." };
   }
   revalidatePath("/admin/empresas");
   revalidatePath("/painel");
   revalidatePath("/painel/empresas");
+  if (id) {
+    revalidatePath(`/painel/empresas/${id}`);
+    revalidatePath(`/admin/empresas/${id}`);
+  }
   return { ok: true, mensagem: id ? "Dados atualizados." : "Empresa cadastrada." };
 }
 

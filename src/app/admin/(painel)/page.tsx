@@ -98,7 +98,7 @@ export default async function InicioAdmin() {
         }
       />
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-3 sm:grid-cols-2 sm:gap-4 xl:grid-cols-4">
         <CartaoIndicador
           rotulo="Em estoque"
           valor={e.placas.disponiveis + e.placas.reservadas}
@@ -160,7 +160,7 @@ export default async function InicioAdmin() {
       <div className="mt-6 grid gap-6 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
         <Painel>
           <TituloPainel titulo="Leituras por dia" descricao="Toques no NFC e leituras do QR Code" />
-          <div className="px-5 pb-5 sm:px-6">
+          <div className="px-4 pb-5 sm:px-6">
             {e.leituras_periodo === 0 ? (
               <EstadoVazio icone={BarChart3} titulo="Nenhuma leitura ainda" descricao="Quando os clientes tocarem nas placas, o gráfico aparece aqui." />
             ) : (
@@ -215,9 +215,9 @@ export default async function InicioAdmin() {
             {eventos.map((ev) => {
               const codigo = codigos.get(ev.placa_id);
               return (
-                <li key={ev.id} className="flex items-center justify-between gap-4 px-5 py-3 text-sm sm:px-6">
-                  <span className="text-slate-700">{ROTULO_ACAO[ev.acao]}</span>
-                  <span className="flex items-center gap-4">
+                <li key={ev.id} className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 px-4 py-3 text-sm sm:px-6">
+                  <span className="min-w-0 text-slate-700">{ROTULO_ACAO[ev.acao]}</span>
+                  <span className="flex items-center gap-3 sm:gap-4">
                     {codigo && (
                       <Link href={`/admin/placas/${codigo}`} className="font-mono text-xs font-medium tracking-wider text-marca-texto hover:underline">
                         {codigo}

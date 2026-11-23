@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Plus, Search, Tags, Trash2 } from "lucide-react";
 import { z } from "zod";
-import { CabecalhoPagina, EstadoVazio, Painel } from "@/components/admin/ui";
+import { CabecalhoPagina, EstadoVazio, Painel, classeBusca, classeSelectFiltro } from "@/components/admin/ui";
 import { buttonVariants } from "@/components/ui/button";
 import { exigirAdmin } from "@/lib/auth";
 import { normalizarCodigo } from "@/lib/codigos";
@@ -26,9 +26,6 @@ const filtros = z.object({
   pagina: z.coerce.number().int().min(1).max(1000).default(1).catch(1),
   apagada: z.string().max(12).optional().catch(undefined),
 });
-
-const classeSelect =
-  "h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none focus:border-marca focus:ring-4 focus:ring-marca/15";
 
 export default async function ListaPlacas({ searchParams }: PageProps<"/admin/placas">) {
   const { supabase } = await exigirAdmin("/admin/placas");
@@ -91,12 +88,16 @@ export default async function ListaPlacas({ searchParams }: PageProps<"/admin/pl
             <Link href="/admin/usuarios?grupo=comprador" className={buttonVariants({ variant: "outline", size: "lg" })}>
               Compradores de placas
             </Link>
-            <Link href="/admin/lotes/novo" className={buttonVariants({ variant: "outline", size: "lg" })}>
-              Criar lote
-            </Link>
-            <Link href="/admin/placas/nova" className={buttonVariants({ size: "lg" })}>
-              <Plus aria-hidden /> Criar placa
-            </Link>
+            {f.empresa ? (
+              <Link href={`/admin/empresas/${f.empresa}?adicionar=1`} className={buttonVariants({ size: "lg" })}>
+                <Plus aria-hidden /> Adicionar placa
+              </Link>
+            ) : (
+              <>
+                <Link href="/admin/lotes/novo" className={buttonVariants({ variant: "outline", size: "lg" })}>Criar lote</Link>
+                <Link href="/admin/placas/nova" className={buttonVariants({ size: "lg" })}><Plus aria-hidden /> Criar placa</Link>
+              </>
+            )}
           </>
         }
       />
@@ -109,19 +110,20 @@ export default async function ListaPlacas({ searchParams }: PageProps<"/admin/pl
       )}
 
       <Painel>
-        <form className="flex flex-wrap items-center gap-2 border-b border-slate-100 p-4" role="search">
+        {/* Celular: busca na linha inteira e filtros em grade; a partir do sm, uma linha que quebra. */}
+        <form className="grid grid-cols-1 gap-2 border-b border-slate-100 p-3 min-[420px]:grid-cols-2 sm:flex sm:flex-wrap sm:items-center sm:p-4" role="search">
           {f.empresa && <input type="hidden" name="empresa" value={f.empresa} />}
-          <div className="relative">
+          <div className="relative min-[420px]:col-span-2 sm:w-64">
             <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-slate-400" aria-hidden />
             <input
               name="q"
               defaultValue={f.q}
               placeholder="Código ou empresa"
               aria-label="Buscar por código ou empresa"
-              className="h-10 w-56 rounded-xl border border-slate-200 bg-white pr-3 pl-9 text-sm outline-none focus:border-marca focus:ring-4 focus:ring-marca/15"
+              className={classeBusca}
             />
           </div>
-          <select name="status" defaultValue={f.status ?? ""} aria-label="Status" className={classeSelect}>
+          <select name="status" defaultValue={f.status ?? ""} aria-label="Status" className={classeSelectFiltro}>
             <option value="">Todos os status</option>
             {Object.entries(ROTULO_STATUS).map(([valor, rotulo]) => (
               <option key={valor} value={valor}>
@@ -129,7 +131,7 @@ export default async function ListaPlacas({ searchParams }: PageProps<"/admin/pl
               </option>
             ))}
           </select>
-          <select name="lote" defaultValue={f.lote ?? ""} aria-label="Lote" className={classeSelect}>
+          <select name="lote" defaultValue={f.lote ?? ""} aria-label="Lote" className={classeSelectFiltro}>
             <option value="">Todos os lotes</option>
             <option value="sem">Sem lote</option>
             {(lotes ?? []).map((l) => (
@@ -138,17 +140,17 @@ export default async function ListaPlacas({ searchParams }: PageProps<"/admin/pl
               </option>
             ))}
           </select>
-          <select name="nfc" defaultValue={f.nfc ?? ""} aria-label="NFC" className={classeSelect}>
+          <select name="nfc" defaultValue={f.nfc ?? ""} aria-label="NFC" className={classeSelectFiltro}>
             <option value="">NFC: todos</option>
             <option value="gravado">NFC gravado</option>
             <option value="pendente">NFC pendente</option>
           </select>
-          <button type="submit" className={buttonVariants({ variant: "outline", size: "lg" })}>
+          <button type="submit" className={buttonVariants({ variant: "outline", size: "lg", className: "h-11" })}>
             Filtrar
           </button>
         </form>
         {f.empresa && (
-          <div className="flex flex-wrap items-center gap-3 border-b border-slate-100 px-4 py-2 text-sm text-slate-600">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-slate-100 px-4 py-2 text-sm text-slate-600">
             <span>{empresas.get(f.empresa) ?? "Filtro por empresa ativo"}</span>
             <Link href={linkPagina(1, "")} className="font-medium text-marca-texto underline">Remover filtro de empresa</Link>
           </div>
@@ -162,10 +164,10 @@ export default async function ListaPlacas({ searchParams }: PageProps<"/admin/pl
           <EstadoVazio
             icone={Tags}
             titulo="Nenhuma placa encontrada"
-            descricao="Toda placa nasce aqui. Crie uma placa ou um lote para gerar código, QR Code e NFC."
+            descricao={f.empresa ? "Adicione uma placa existente pelo código impresso nela." : "Crie uma placa ou um lote para gerar código, QR Code e NFC."}
             acoes={
-              <Link href="/admin/placas/nova" className={buttonVariants()}>
-                <Plus aria-hidden /> Criar placa
+              <Link href={f.empresa ? `/admin/empresas/${f.empresa}?adicionar=1` : "/admin/placas/nova"} className={buttonVariants()}>
+                <Plus aria-hidden /> {f.empresa ? "Adicionar placa" : "Criar placa"}
               </Link>
             }
           />
@@ -188,7 +190,7 @@ export default async function ListaPlacas({ searchParams }: PageProps<"/admin/pl
       </Painel>
 
       {paginas > 1 && (
-        <nav aria-label="Paginação" className="mt-5 flex items-center justify-center gap-3 text-sm">
+        <nav aria-label="Paginação" className="mt-5 flex flex-wrap items-center justify-center gap-3 text-sm">
           {f.pagina > 1 && <Link href={linkPagina(f.pagina - 1)} className={buttonVariants({ variant: "outline", size: "sm" })}>Anterior</Link>}
           <span className="text-slate-500">Página {f.pagina} de {paginas}</span>
           {f.pagina < paginas && <Link href={linkPagina(f.pagina + 1)} className={buttonVariants({ variant: "outline", size: "sm" })}>Próxima</Link>}

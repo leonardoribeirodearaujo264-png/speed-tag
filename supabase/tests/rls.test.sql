@@ -2,7 +2,7 @@
 -- Cobrem RLS (cliente não vê placa de outro, não se promove a admin, anon não lê nada)
 -- e a ativação atômica.
 begin;
-select plan(28);
+select plan(39);
 
 -- Usuários de teste (o gatilho cria os perfis).
 insert into auth.users (id, email, email_confirmed_at, raw_user_meta_data) values
@@ -125,7 +125,14 @@ select throws_ok(
   $$ select public.speed_tag_editar_cliente('11111111-1111-4111-8111-111111111111', 'Ana', null, false, 100) $$,
   '42501', null, 'cliente não altera o limite da própria conta'
 );
-select is(public.speed_tag_criar_placa_propria('NV0010'), false, 'cadastro de tag própria exige limite configurado');
+select throws_ok(
+  $$ select public.speed_tag_criar_placa_propria('NV0010') $$,
+  '42501', null, 'cliente não executa a criação legada de placas'
+);
+select throws_ok(
+  $$ insert into public.placas (codigo) values ('NV0010') $$,
+  '42501', null, 'cliente não cria placa por INSERT direto'
+);
 select is(public.speed_tag_reivindicar_nfc('NV0001', repeat('a', 64)), false, 'código público não vincula tag sem entrega e segredo');
 select ok(
   public.speed_tag_cadastrar_empresa('11111111-1111-4111-8111-111111111111',
@@ -141,6 +148,33 @@ select is(
   public.speed_tag_vincular_empresa((select id from public.empresas where nome = 'Empresa própria de teste'), 'TST001'),
   true, 'cliente vincula uma placa própria à sua empresa'
 );
+select is(
+  public.speed_tag_vincular_empresa((select id from public.empresas where nome = 'Empresa própria de teste'), 'NV0002'),
+  false, 'cliente não ativa placa em estoque sem passar pelo resgate'
+);
+select ok(
+  public.speed_tag_editar_empresa_completa((select id from public.empresas where nome = 'Empresa própria de teste'),
+    'Empresa editada', 'ana@teste.dev', 'https://g.page/r/novo/review'),
+  'cliente troca nome e link da empresa'
+);
+select is((select destino_url from public.placas where codigo = 'TST001'),
+  'https://g.page/r/novo/review', 'a placa vinculada usa o novo endereço');
+select ok(
+  public.speed_tag_editar_empresa_completa((select id from public.empresas where nome = 'Empresa editada'),
+    'Empresa editada', 'ana@teste.dev', null),
+  'cliente pode limpar o link da empresa'
+);
+select is((select status::text from public.placas where codigo = 'TST001'), 'atribuida',
+  'limpar o link suspende o redirecionamento da placa vinculada');
+select ok(
+  public.speed_tag_remover_placa_da_empresa((select id from public.empresas where nome = 'Empresa editada'), 'TST001'),
+  'cliente remove uma placa própria da empresa'
+);
+select ok(
+  (select empresa_id is null and dono_id = '11111111-1111-4111-8111-111111111111'::uuid
+    from public.placas where codigo = 'TST001'),
+  'remoção preserva a placa e seu titular'
+);
 
 reset role;
 insert into public.speed_tag_administradores (usuario_id) values ('22222222-2222-4222-8222-222222222222');
@@ -148,6 +182,21 @@ update public.perfis set papel = 'admin' where id = '22222222-2222-4222-8222-222
 set local role authenticated;
 set local request.jwt.claims = '{"sub":"22222222-2222-4222-8222-222222222222","role":"authenticated"}';
 select ok(public.eh_admin(), 'segunda conta autorizada também é administradora');
+select ok(
+  public.speed_tag_editar_empresa_completa((select id from public.empresas where nome = 'Empresa editada'),
+    'Empresa editada', 'ana@teste.dev', 'https://g.page/r/novo/review'),
+  'administrador configura o endereço da empresa titular'
+);
+select ok(
+  public.speed_tag_vincular_empresa((select id from public.empresas where nome = 'Empresa editada'), 'NV0002'),
+  'administrador ativa uma placa que já existe no estoque'
+);
+select ok(
+  (select status = 'ativa' and destino_url = 'https://g.page/r/novo/review'
+    and dono_id = '11111111-1111-4111-8111-111111111111'::uuid
+    from public.placas where codigo = 'NV0002'),
+  'a placa existente passa ao titular e recebe o destino da empresa'
+);
 select is(
   public.speed_tag_editar_cliente('33333333-3333-4333-8333-333333333333', 'Admin', null, false, null) ->> 'ok',
   'true', 'administrador pode editar outro administrador preservando seu papel'

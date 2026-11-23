@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { CopyPlus, Layers, Link2, Loader2, Users } from "lucide-react";
 import { toast } from "sonner";
 import { Modal } from "@/components/admin/modal";
+import { classeCampo as campo } from "@/components/admin/ui";
 import { Button } from "@/components/ui/button";
 import type { StatusPlaca } from "@/lib/supabase/tipos";
 import { duplicarPlaca, moverLoteEmMassa, transferirEmMassa, type ResultadoMassa } from "../acoes-massa";
@@ -13,12 +14,11 @@ import { ativarPlacaPeloAdmin, vincularLinkAPlaca } from "@/lib/acoes/link-avali
 
 type Janela = "lote" | "transferir" | "empresa" | null;
 
-const campo = "h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-[15px] outline-none focus:border-marca focus:ring-4 focus:ring-marca/15";
 const rotuloCampo = "flex flex-col gap-1.5 text-sm font-medium text-slate-700";
 
 function Rodape({ pendente, rotulo, aoCancelar, desabilitado }: { pendente: boolean; rotulo: string; aoCancelar: () => void; desabilitado?: boolean }) {
   return (
-    <div className="flex justify-end gap-2 pt-1">
+    <div className="flex flex-wrap justify-end gap-2 pt-1">
       <Button type="button" variant="outline" onClick={aoCancelar}>Cancelar</Button>
       <Button type="submit" disabled={pendente || desabilitado}>
         {pendente && <Loader2 className="animate-spin" />} {rotulo}

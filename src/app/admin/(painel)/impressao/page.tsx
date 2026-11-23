@@ -82,7 +82,8 @@ export default async function Impressao({ searchParams }: PageProps<"/admin/impr
             {paginas > 1 && ` · parte ${pagina} de ${paginas}`}
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex w-full flex-wrap items-center gap-x-4 gap-y-2 sm:w-auto">
+          <div className="flex flex-wrap items-center gap-1.5">
           <span className="text-sm text-muted-foreground">Arte:</span>
           {NOMES_MODELOS.map((modelo) => (
             <Link
@@ -94,7 +95,9 @@ export default async function Impressao({ searchParams }: PageProps<"/admin/impr
               {MODELOS_ARTE[modelo].rotulo}
             </Link>
           ))}
-          <span className="ml-2 text-sm text-muted-foreground">Lado:</span>
+          </div>
+          <div className="flex flex-wrap items-center gap-1.5">
+          <span className="text-sm text-muted-foreground">Lado:</span>
           {LADOS_CM.map((cm) => (
             <Link
               key={cm}
@@ -105,6 +108,7 @@ export default async function Impressao({ searchParams }: PageProps<"/admin/impr
               {cm} cm
             </Link>
           ))}
+          </div>
           <BotaoImprimir />
         </div>
       </div>
@@ -114,9 +118,10 @@ export default async function Impressao({ searchParams }: PageProps<"/admin/impr
         &quot;Salvar como PDF&quot;. As linhas tracejadas são guia de corte.
       </p>
 
-      <div className="flex flex-wrap gap-[4mm] bg-white p-4 print:p-0">
+      {/* Na tela, placas maiores que o celular rolam só dentro deste bloco; na impressão o tamanho é real. */}
+      <div className="flex flex-wrap gap-[4mm] overflow-x-auto overscroll-x-contain rounded-xl bg-white p-3 sm:p-4 print:overflow-visible print:rounded-none print:p-0">
         {artes.map(({ codigo, qr }) => (
-          <div key={codigo} className="break-inside-avoid border border-dashed border-slate-300 p-[2mm]">
+          <div key={codigo} className="shrink-0 break-inside-avoid border border-dashed border-slate-300 p-[2mm]">
             <ArtePlaca codigo={codigo} qrDataUri={qr} tamanho={ladoPx} modelo={modeloAtual} />
           </div>
         ))}

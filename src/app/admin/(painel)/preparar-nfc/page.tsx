@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import Link from "next/link";
 import { CabecalhoPagina, Painel } from "@/components/admin/ui";
+import { buttonVariants } from "@/components/ui/button";
 import { exigirAdmin } from "@/lib/auth";
 import { marcosNfc, ROTA_PREPARO_NFC } from "@/lib/placas/preparo-nfc";
 import { NovaTagNfc } from "./nova-tag";
@@ -33,15 +34,15 @@ async function Tags({ searchParams }: { searchParams: Promise<{ pagina?: string 
       {data.length === 0 && <p className="p-5 text-sm text-muted-foreground">Nenhuma tag nesta página.</p>}
       {data.slice(0, POR_PAGINA).map((tag) => (
         <Link key={tag.codigo} href={`${ROTA_PREPARO_NFC}/${tag.codigo}`}
-          className="flex items-center justify-between gap-4 px-5 py-3 text-sm hover:bg-slate-50">
-          <span className="font-semibold text-marca-texto">{tag.codigo}</span>
-          <span>{tag.status === "desativada" ? "Desativada" : marcosNfc(tag).filter(({ data }) => data).at(-1)?.rotulo}</span>
+          className="flex min-h-12 items-center justify-between gap-4 px-4 py-3 text-sm hover:bg-slate-50 sm:px-5">
+          <span className="font-mono font-semibold tracking-wider text-marca-texto">{tag.codigo}</span>
+          <span className="text-right text-slate-600">{tag.status === "desativada" ? "Desativada" : marcosNfc(tag).filter(({ data }) => data).at(-1)?.rotulo}</span>
         </Link>
       ))}
       {(pagina > 1 || data.length > POR_PAGINA) && (
-        <nav aria-label="Paginação das tags" className="flex gap-5 p-5 text-sm text-marca-texto">
-          {pagina > 1 && <Link href={`?pagina=${pagina - 1}`}>Anterior</Link>}
-          {data.length > POR_PAGINA && <Link href={`?pagina=${pagina + 1}`}>Próxima</Link>}
+        <nav aria-label="Paginação das tags" className="flex flex-wrap justify-center gap-3 p-4 text-sm sm:p-5">
+          {pagina > 1 && <Link href={`?pagina=${pagina - 1}`} className={buttonVariants({ variant: "outline" })}>Anterior</Link>}
+          {data.length > POR_PAGINA && <Link href={`?pagina=${pagina + 1}`} className={buttonVariants({ variant: "outline" })}>Próxima</Link>}
         </nav>
       )}
     </Painel>

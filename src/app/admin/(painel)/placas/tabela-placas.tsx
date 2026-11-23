@@ -9,7 +9,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { Modal } from "@/components/admin/modal";
-import { PilulaStatus } from "@/components/admin/ui";
+import { PilulaStatus, classeCampo } from "@/components/admin/ui";
 import { CartaoListagem } from "@/components/admin/cartao-listagem";
 import { Button, buttonVariants } from "@/components/ui/button";
 import type { StatusPlaca } from "@/lib/supabase/tipos";
@@ -29,19 +29,20 @@ export type LinhaPlaca = {
 
 type Janela = "atribuir" | "transferir" | "lote" | "desativar" | null;
 
-const campo = "h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-[15px] outline-none focus:border-marca focus:ring-4 focus:ring-marca/15";
+/** Botões da barra de seleção em massa: 44 px no celular, compactos no desktop. */
+const botaoBarra = "inline-flex min-h-11 items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm md:min-h-0";
 
 function MenuLinha({ linha, executar }: { linha: LinhaPlaca; executar: (acao: () => Promise<ResultadoMassa>) => void }) {
-  const item = "flex w-full cursor-pointer items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm text-slate-700 outline-none data-highlighted:bg-slate-100";
+  const item = "flex min-h-11 w-full cursor-pointer items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm text-slate-700 outline-none data-highlighted:bg-slate-100 md:min-h-0";
 
   return (
     <Menu.Root modal={false}>
-      <Menu.Trigger aria-label={`Ações da placa ${linha.codigo}`} className="grid size-9 place-items-center rounded-lg text-slate-500 hover:bg-slate-100 focus-visible:ring-2 focus-visible:ring-marca">
+      <Menu.Trigger aria-label={`Ações da placa ${linha.codigo}`} className="grid size-11 place-items-center rounded-lg text-slate-500 hover:bg-slate-100 focus-visible:ring-2 focus-visible:ring-marca md:size-9">
         <MoreHorizontal className="size-5" aria-hidden />
       </Menu.Trigger>
       <Menu.Portal>
         <Menu.Positioner align="end" sideOffset={4} className="z-40">
-          <Menu.Popup className="max-h-[var(--available-height)] w-56 max-w-[var(--available-width)] overflow-auto rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl">
+          <Menu.Popup className="max-h-[var(--available-height)] w-60 max-w-[var(--available-width)] md:w-56 overflow-auto rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl">
             <Menu.LinkItem render={<Link href={`/admin/placas/${linha.codigo}`} />} closeOnClick className={item}>
               <Eye className="size-4 text-slate-400" /> Ver detalhes
             </Menu.LinkItem>
@@ -116,8 +117,8 @@ export function CartoesPlacas({ linhas, lotes }: { linhas: LinhaPlaca[]; lotes: 
 
   return (
     <>
-      <div className="bg-slate-50/80 px-4 py-4 sm:px-5">
-        <label className="mb-4 inline-flex cursor-pointer items-center gap-2 text-sm font-medium text-slate-700">
+      <div className="bg-slate-50/80 p-3 sm:px-5 sm:py-4">
+        <label className="mb-2 inline-flex min-h-11 cursor-pointer items-center gap-2 text-sm font-medium text-slate-700 md:mb-4 md:min-h-0">
           <input type="checkbox" checked={todas} onChange={() => setSelecionadas(todas ? new Set() : new Set(linhas.map((l) => l.codigo)))} className="size-4 accent-marca" />
           Selecionar placas desta página
         </label>
@@ -133,7 +134,10 @@ export function CartoesPlacas({ linhas, lotes }: { linhas: LinhaPlaca[]; lotes: 
                   subtitulo={placa.empresa ?? placa.titular ?? "Sem empresa vinculada"}
                   selecionado={selecionada}
                   opcoes={<>
-                    <input type="checkbox" aria-label={`Selecionar ${placa.codigo}`} checked={selecionada} onChange={() => alternar(placa.codigo)} className="size-4 accent-marca" />
+                    {/* A caixa é pequena; o rótulo em volta dá a área de toque de 44 px no celular. */}
+                    <label className="grid size-11 cursor-pointer place-items-center rounded-lg hover:bg-slate-100 md:size-9">
+                      <input type="checkbox" aria-label={`Selecionar ${placa.codigo}`} checked={selecionada} onChange={() => alternar(placa.codigo)} className="size-4 accent-marca" />
+                    </label>
                     <MenuLinha linha={placa} executar={executar} />
                   </>}
                   acoes={<>
@@ -165,29 +169,30 @@ export function CartoesPlacas({ linhas, lotes }: { linhas: LinhaPlaca[]; lotes: 
       </div>
 
       {selecionadas.size > 0 && (
-        <div className="sticky bottom-4 z-20 mx-4 mb-4 flex flex-wrap items-center gap-2 rounded-2xl bg-marca-fundo p-3 text-white shadow-2xl animate-in slide-in-from-bottom-2">
-          <span className="px-2 text-sm font-medium">{selecionadas.size} selecionada{selecionadas.size > 1 ? "s" : ""}</span>
-          <div className="flex flex-1 flex-wrap gap-1.5">
+        <div className="sticky bottom-[max(0.75rem,env(safe-area-inset-bottom))] z-20 mx-3 mb-3 flex flex-wrap items-center gap-2 rounded-2xl bg-marca-fundo p-3 text-white shadow-2xl animate-in slide-in-from-bottom-2 sm:mx-4 sm:mb-4">
+          <span className="flex-1 px-2 text-sm font-medium sm:flex-none">{selecionadas.size} selecionada{selecionadas.size > 1 ? "s" : ""}</span>
+          {pendente && <Loader2 className="size-4 animate-spin sm:order-last" aria-label="Processando" />}
+          <button type="button" onClick={() => setSelecionadas(new Set())} className="grid size-11 place-items-center rounded-lg text-slate-300 hover:bg-white/10 sm:order-last md:size-8" aria-label="Limpar seleção"><X className="size-4" /></button>
+          {/* No celular as ações ficam em grade de duas colunas, sem rolagem lateral. */}
+          <div className="grid w-full grid-cols-2 gap-1.5 sm:flex sm:w-auto sm:flex-1 sm:flex-wrap">
             {[
               { rotulo: "Atribuir", icone: UserPlus, abrir: "atribuir" as const },
               { rotulo: "Transferir", icone: Users, abrir: "transferir" as const },
               { rotulo: "Mover lote", icone: Layers, abrir: "lote" as const },
             ].map(({ rotulo, icone: Icone, abrir }) => (
-              <button key={rotulo} type="button" disabled={pendente} onClick={() => setJanela(abrir)} className="inline-flex items-center gap-1.5 rounded-lg bg-white/10 px-3 py-1.5 text-sm hover:bg-white/20">
+              <button key={rotulo} type="button" disabled={pendente} onClick={() => setJanela(abrir)} className={`${botaoBarra} bg-white/10 hover:bg-white/20`}>
                 <Icone className="size-4" /> {rotulo}
               </button>
             ))}
-            <button type="button" disabled={pendente} onClick={() => executar(() => alternarEmMassa(codigos, "reativar"))} className="inline-flex items-center gap-1.5 rounded-lg bg-white/10 px-3 py-1.5 text-sm hover:bg-white/20">
+            <button type="button" disabled={pendente} onClick={() => executar(() => alternarEmMassa(codigos, "reativar"))} className={`${botaoBarra} bg-white/10 hover:bg-white/20`}>
               <Power className="size-4" /> Reativar
             </button>
-            <button type="button" disabled={pendente} onClick={() => setJanela("desativar")} className="inline-flex items-center gap-1.5 rounded-lg bg-red-500/20 px-3 py-1.5 text-sm text-red-200 hover:bg-red-500/30">
+            <button type="button" disabled={pendente} onClick={() => setJanela("desativar")} className={`${botaoBarra} bg-red-500/20 text-red-200 hover:bg-red-500/30`}>
               <Ban className="size-4" /> Desativar
             </button>
-            <a href={exportar("csv")} className="inline-flex items-center gap-1.5 rounded-lg bg-white/10 px-3 py-1.5 text-sm hover:bg-white/20"><FileSpreadsheet className="size-4" /> CSV</a>
-            <a href={exportar("zip")} className="inline-flex items-center gap-1.5 rounded-lg bg-white/10 px-3 py-1.5 text-sm hover:bg-white/20"><FolderArchive className="size-4" /> QR Codes</a>
+            <a href={exportar("csv")} className={`${botaoBarra} bg-white/10 hover:bg-white/20`}><FileSpreadsheet className="size-4" /> CSV</a>
+            <a href={exportar("zip")} className={`${botaoBarra} bg-white/10 hover:bg-white/20`}><FolderArchive className="size-4" /> QR Codes</a>
           </div>
-          {pendente && <Loader2 className="size-4 animate-spin" aria-label="Processando" />}
-          <button type="button" onClick={() => setSelecionadas(new Set())} className="rounded-lg p-1.5 text-slate-300 hover:bg-white/10" aria-label="Limpar seleção"><X className="size-4" /></button>
         </div>
       )}
 
@@ -200,7 +205,7 @@ export function CartoesPlacas({ linhas, lotes }: { linhas: LinhaPlaca[]; lotes: 
         <form className="flex flex-col gap-4" onSubmit={(e) => { e.preventDefault(); executar(() => (janela === "atribuir" ? atribuirEmMassa(codigos, email) : transferirEmMassa(codigos, email))); }}>
           <label className="flex flex-col gap-1.5 text-sm font-medium text-slate-700">
             E-mail da conta do cliente
-            <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} className={campo} placeholder="cliente@empresa.com" />
+            <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} className={classeCampo} placeholder="cliente@empresa.com" />
           </label>
           <div className="flex justify-end gap-2">
             <Button type="button" variant="outline" onClick={() => setJanela(null)}>Cancelar</Button>
@@ -211,7 +216,7 @@ export function CartoesPlacas({ linhas, lotes }: { linhas: LinhaPlaca[]; lotes: 
 
       <Modal aberto={janela === "lote"} aoFechar={() => setJanela(null)} titulo="Mover para lote" descricao="As placas selecionadas mudam de lote; nada mais é alterado.">
         <form className="flex flex-col gap-4" onSubmit={(e) => { e.preventDefault(); executar(() => moverLoteEmMassa(codigos, lote || null)); }}>
-          <select value={lote} onChange={(e) => setLote(e.target.value)} className={campo}>
+          <select value={lote} onChange={(e) => setLote(e.target.value)} className={classeCampo} aria-label="Lote">
             <option value="">Sem lote (avulsas)</option>
             {lotes.map((l) => <option key={l.id} value={l.id}>{l.nome}</option>)}
           </select>

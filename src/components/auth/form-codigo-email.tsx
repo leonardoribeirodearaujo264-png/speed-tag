@@ -1,8 +1,8 @@
 "use client";
 
 import { useActionState } from "react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { KeyRound } from "lucide-react";
+import { BotaoPrincipal, CampoTexto, MensagemErro } from "@/components/auth/campos";
 
 export function FormCodigoEmail({ acao, rotulo }: {
   acao: (anterior: string, dados: FormData) => Promise<string>;
@@ -10,14 +10,12 @@ export function FormCodigoEmail({ acao, rotulo }: {
 }) {
   const [erro, enviar, pendente] = useActionState(acao, "");
   return (
-    <form action={enviar} className="space-y-3">
-      <label className="block space-y-1 text-sm font-medium">
-        <span>Código recebido por e-mail</span>
-        <Input name="codigo" type="text" inputMode="numeric" autoComplete="one-time-code"
-          pattern="[0-9]{6,10}" minLength={6} maxLength={10} required className="min-h-11 font-mono tracking-widest" />
-      </label>
-      <Button type="submit" className="min-h-11 w-full" disabled={pendente}>{pendente ? "Verificando..." : rotulo}</Button>
-      {erro && <p role="alert" className="text-sm text-destructive">{erro}</p>}
+    <form action={enviar} className="flex flex-col gap-4">
+      <CampoTexto id="codigo" rotulo="Código recebido por e-mail" icone={KeyRound} type="text" inputMode="numeric"
+        autoComplete="one-time-code" pattern="[0-9]{6,10}" minLength={6} maxLength={10} required
+        className="font-mono tracking-[0.3em]" aria-invalid={!!erro} />
+      {erro && <MensagemErro>{erro}</MensagemErro>}
+      <BotaoPrincipal carregando={pendente}>{pendente ? "Verificando..." : rotulo}</BotaoPrincipal>
     </form>
   );
 }

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Ellipsis, Pencil, Search, UserPlus, Users } from "lucide-react";
 import { z } from "zod";
-import { CabecalhoPagina, EstadoVazio, Painel } from "@/components/admin/ui";
+import { CabecalhoPagina, EstadoVazio, Painel, classeBusca, classeSelectFiltro } from "@/components/admin/ui";
 import { buttonVariants } from "@/components/ui/button";
 import { exigirAdmin } from "@/lib/auth";
 import { CartaoListagem } from "@/components/admin/cartao-listagem";
@@ -22,9 +22,6 @@ const filtros = z.object({
   situacao: z.enum(["ativos", "bloqueados"]).optional().catch(undefined),
   pagina: z.coerce.number().int().min(1).max(1000).default(1).catch(1),
 });
-
-const classeSelect =
-  "h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none focus:border-marca focus:ring-4 focus:ring-marca/15";
 
 export default async function ListaUsuarios({ searchParams }: PageProps<"/admin/usuarios">) {
   const { supabase } = await exigirAdmin("/admin/usuarios");
@@ -77,7 +74,8 @@ export default async function ListaUsuarios({ searchParams }: PageProps<"/admin/
         }
       />
 
-      <nav aria-label="Tipos de conta" className="mb-4 flex flex-wrap gap-2">
+      {/* Celular: abas em rolagem horizontal contida no próprio bloco (a página não rola de lado). */}
+      <nav aria-label="Tipos de conta" className="-mx-4 mb-4 flex gap-2 overflow-x-auto overscroll-x-contain px-4 pb-1 [scrollbar-width:none] *:shrink-0 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0 sm:pb-0">
         {([
           ["revendedor", "Revendedores"],
           ["comprador", "Compradores de placas"],
@@ -90,24 +88,24 @@ export default async function ListaUsuarios({ searchParams }: PageProps<"/admin/
         <Link href="/admin/placas" className={buttonVariants({ variant: "outline" })}>Estoque de placas</Link>
       </nav>
       <Painel>
-        <form className="flex flex-wrap items-center gap-2 border-b border-slate-100 p-4" role="search">
+        <form className="flex flex-wrap items-center gap-2 border-b border-slate-100 p-3 sm:p-4" role="search">
           <input type="hidden" name="grupo" value={f.grupo} />
-          <div className="relative min-w-56 flex-1">
+          <div className="relative w-full sm:w-auto sm:min-w-56 sm:flex-1">
             <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-slate-400" aria-hidden />
             <input
               name="q"
               defaultValue={f.q}
               placeholder="Buscar por nome ou e-mail"
               aria-label="Buscar por nome ou e-mail"
-              className="h-10 w-full rounded-xl border border-slate-200 bg-white pr-3 pl-9 text-sm outline-none focus:border-marca focus:ring-4 focus:ring-marca/15"
+              className={classeBusca}
             />
           </div>
-          <select name="situacao" defaultValue={f.situacao ?? ""} aria-label="Situação" className={classeSelect}>
+          <select name="situacao" defaultValue={f.situacao ?? ""} aria-label="Situação" className={`${classeSelectFiltro} max-sm:w-auto max-sm:flex-1`}>
             <option value="">Todas as situações</option>
             <option value="ativos">Com acesso</option>
             <option value="bloqueados">Bloqueados</option>
           </select>
-          <button type="submit" className={buttonVariants({ variant: "outline", size: "lg" })}>
+          <button type="submit" className={buttonVariants({ variant: "outline", size: "lg", className: "h-11" })}>
             Filtrar
           </button>
         </form>
@@ -119,7 +117,7 @@ export default async function ListaUsuarios({ searchParams }: PageProps<"/admin/
         ) : !usuarios?.length ? (
           <EstadoVazio icone={Users} titulo="Nenhum usuário encontrado" descricao="Ajuste a busca ou os filtros." />
         ) : (
-          <ul className="grid gap-3 bg-slate-50 p-4 lg:grid-cols-2">
+          <ul className="grid gap-3 bg-slate-50 p-3 sm:p-4 lg:grid-cols-2">
             {usuarios.map((usuario) => {
               const ficha = `/admin/usuarios/${usuario.id}`;
               const placas = contagem.get(usuario.id) ?? 0;
@@ -132,10 +130,10 @@ export default async function ListaUsuarios({ searchParams }: PageProps<"/admin/
                     subtitulo={nome !== usuario.email ? usuario.email : null}
                     opcoes={usuario.papel === "cliente" && !usuario.bloqueado_em && (
                       <details className="relative">
-                        <summary aria-label={`Opções de ${usuario.nome ?? usuario.email ?? "cliente"}`} className="grid size-9 cursor-pointer list-none place-items-center rounded-lg hover:bg-slate-100 [&::-webkit-details-marker]:hidden">
+                        <summary aria-label={`Opções de ${usuario.nome ?? usuario.email ?? "cliente"}`} className="grid size-11 cursor-pointer list-none place-items-center rounded-lg hover:bg-slate-100 md:size-9 [&::-webkit-details-marker]:hidden">
                           <Ellipsis className="size-5" aria-hidden />
                         </summary>
-                        <div className="absolute top-full right-0 z-10 w-56 rounded-xl border bg-white p-3 shadow-lg">
+                        <div className="absolute top-full right-0 z-10 w-[min(15rem,calc(100vw-3rem))] rounded-xl border bg-white p-3 shadow-lg">
                           <Link href={ficha} className="text-sm font-medium text-marca-texto hover:underline">Editar cadastro</Link>
                           <RemoverAcesso usuarioId={usuario.id} />
                         </div>
@@ -156,7 +154,7 @@ export default async function ListaUsuarios({ searchParams }: PageProps<"/admin/
       </Painel>
 
       {paginas > 1 && (
-        <nav aria-label="Paginação" className="mt-5 flex items-center justify-center gap-3 text-sm">
+        <nav aria-label="Paginação" className="mt-5 flex flex-wrap items-center justify-center gap-3 text-sm">
           {f.pagina > 1 && <Link href={linkPagina(f.pagina - 1)} className={buttonVariants({ variant: "outline", size: "sm" })}>Anterior</Link>}
           <span className="text-slate-500">Página {f.pagina} de {paginas}</span>
           {f.pagina < paginas && <Link href={linkPagina(f.pagina + 1)} className={buttonVariants({ variant: "outline", size: "sm" })}>Próxima</Link>}

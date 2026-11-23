@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { BarChart3, Nfc, Zap } from "lucide-react";
-import { LogoCompleta, MarcaCompacta } from "@/components/marca/marca";
+import { LogoCompleta } from "@/components/marca/marca";
 import { ArtePlaca } from "@/components/placa/arte-placa";
 import { qrDaArte } from "@/lib/placas/qr";
 
@@ -78,26 +78,36 @@ type Props = {
   selo?: string;
 };
 
+/**
+ * Casca das telas de login, cadastro e senha. Celular: faixa escura com a logo oficial e o
+ * formulário num cartão branco que sobe da base (respeita as áreas seguras do iPhone).
+ * Computador: painel da marca à esquerda e formulário centralizado à direita.
+ */
 export function LayoutAutenticacao({ titulo, subtitulo, children, rodape, selo }: Props) {
   return (
-    <div className="grid min-h-dvh flex-1 bg-white lg:grid-cols-[minmax(0,1.05fr)_minmax(0,1fr)]">
+    <div className="grid min-h-dvh flex-1 bg-marca-fundo lg:grid-cols-[minmax(0,1.05fr)_minmax(0,1fr)] lg:bg-white">
       <PainelMarca />
 
-      <main className="flex flex-col px-5 py-8 sm:px-10">
-        <div className="lg:hidden">
-          <MarcaCompacta />
+      <main className="relative flex min-h-dvh flex-col lg:min-h-0">
+        <div className="pt-seguro relative overflow-hidden lg:hidden">
+          <div aria-hidden className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_90%_70%_at_50%_0%,rgba(23,103,255,0.45),transparent_70%)]" />
+          <div className="relative flex justify-center px-6 pt-8 pb-10">
+            <LogoCompleta className="h-10 drop-shadow-[0_8px_24px_rgba(23,103,255,0.35)]" prioridade />
+          </div>
         </div>
 
-        <div className="mx-auto flex w-full max-w-[400px] flex-1 flex-col justify-center py-10 animate-in fade-in slide-in-from-bottom-2 duration-500">
-          {selo && (
-            <span className="mb-4 inline-flex w-fit items-center rounded-full bg-marca-claro px-3 py-1 text-xs font-medium text-marca-texto ring-1 ring-marca-borda">
-              {selo}
-            </span>
-          )}
-          <h1 className="text-3xl font-semibold tracking-tight text-slate-900">{titulo}</h1>
-          <div className="mt-2 text-[15px] leading-relaxed text-slate-500">{subtitulo}</div>
-          <div className="mt-8">{children}</div>
-          {rodape && <div className="mt-8 text-center text-sm text-slate-500">{rodape}</div>}
+        <div className="pb-seguro relative -mt-4 flex flex-1 flex-col rounded-t-[28px] bg-white px-5 pt-8 sm:px-10 lg:mt-0 lg:rounded-none lg:pt-8">
+          <div className="mx-auto flex w-full max-w-[420px] flex-1 flex-col py-2 animate-in fade-in slide-in-from-bottom-2 duration-500 lg:justify-center lg:py-10">
+            {selo && (
+              <span className="mb-4 inline-flex w-fit items-center rounded-full bg-marca-claro px-3 py-1 text-xs font-medium text-marca-texto ring-1 ring-marca-borda">
+                {selo}
+              </span>
+            )}
+            <h1 className="text-[26px] leading-tight font-semibold tracking-tight text-slate-900 sm:text-3xl">{titulo}</h1>
+            <div className="mt-2 text-[15px] leading-relaxed text-slate-500">{subtitulo}</div>
+            <div className="mt-7">{children}</div>
+            {rodape && <div className="mt-8 text-center text-sm text-slate-500">{rodape}</div>}
+          </div>
         </div>
       </main>
     </div>

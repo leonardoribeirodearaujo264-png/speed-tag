@@ -167,7 +167,7 @@ export default async function DetalhePlaca({ params, searchParams }: PageProps<"
                       href={`/admin/placas/${placa.codigo}?modelo=${m}`}
                       scroll={false}
                       aria-current={m === modelo ? "true" : undefined}
-                      className={`rounded-lg px-3 py-1 text-sm font-medium ${m === modelo ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-800"}`}
+                      className={`inline-flex min-h-10 items-center rounded-lg px-3 py-1 text-sm font-medium md:min-h-0 ${m === modelo ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-800"}`}
                     >
                       {MODELOS_ARTE[m].rotulo}
                     </Link>
@@ -176,10 +176,11 @@ export default async function DetalhePlaca({ params, searchParams }: PageProps<"
               }
             />
             <div className="flex flex-col items-center gap-5 px-5 pb-6 sm:px-6">
-              <div className="w-full max-w-[340px] overflow-hidden rounded-2xl shadow-xl ring-1 ring-black/5">
+              {/* A arte tem 340 px fixos; em telas estreitas o zoom reduz o conjunto sem cortar a placa. */}
+              <div className="w-fit overflow-hidden rounded-2xl shadow-xl ring-1 ring-black/5 max-[380px]:[zoom:0.72] min-[381px]:max-[420px]:[zoom:0.86]">
                 <ArtePlaca codigo={placa.codigo} qrDataUri={qrDataUri} tamanho={340} modelo={modelo} />
               </div>
-              <div className="flex flex-wrap justify-center gap-2">
+              <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:flex-wrap sm:justify-center">
                 <a href={`${base}/arte?baixar=1&modelo=${modelo}`} className={buttonVariants({ variant: "outline" })}>
                   <Download aria-hidden /> Arte PNG
                 </a>
@@ -199,7 +200,7 @@ export default async function DetalhePlaca({ params, searchParams }: PageProps<"
           <Painel>
             <TituloPainel titulo={`Leituras nos últimos ${DIAS_ESTATISTICA} dias`} descricao={ultimaLeitura ? `Última leitura em ${formatarData(ultimaLeitura)}.` : "Nenhuma leitura no período."} />
             <div className="px-5 pb-6 sm:px-6">
-              <div className="mb-4 grid grid-cols-3 gap-3">
+              <div className="mb-4 grid grid-cols-3 gap-2 sm:gap-3">
                 {[
                   { rotulo: "Total", valor: totalNfc + totalQr },
                   { rotulo: "NFC", valor: totalNfc },

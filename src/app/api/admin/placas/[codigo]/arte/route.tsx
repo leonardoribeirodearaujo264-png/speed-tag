@@ -1,14 +1,7 @@
-import { ImageResponse } from "next/og";
-import { ArtePlaca } from "@/components/placa/arte-placa";
 import { verificarAdminApi } from "@/lib/auth";
 import { buscarPlacaPorCodigo, modeloDoLote, respostaErroBusca } from "@/lib/placas/consultas";
-import { fundoArteDataUri } from "@/lib/placas/fundo-arte";
 import { modeloArte } from "@/lib/placas/modelos-arte";
-import { qrDaArte } from "@/lib/placas/qr";
-import { urlQr } from "@/lib/placas/urls";
-
-/** 2000 px de lado: ~250 dpi numa placa de 20 cm, ~630 dpi numa de 8 cm. */
-const LADO = 2000;
+import { respostaArtePlaca } from "@/lib/placas/resposta-arte";
 
 export async function GET(request: Request, ctx: RouteContext<"/api/admin/placas/[codigo]/arte">) {
   const sessao = await verificarAdminApi();
@@ -19,20 +12,10 @@ export async function GET(request: Request, ctx: RouteContext<"/api/admin/placas
   if (!busca.ok) return respostaErroBusca(busca.status);
 
   const placa = busca.dado;
-  const qr = await qrDaArte(urlQr(placa.codigo));
   const parametros = new URL(request.url).searchParams;
   const baixar = parametros.get("baixar") === "1";
   // Sem ?modelo=, vale a arte salva no lote da placa.
   const pedido = parametros.get("modelo");
   const modelo = pedido ? modeloArte(pedido) : await modeloDoLote(sessao.supabase, placa.lote_id);
-  const fundo = await fundoArteDataUri(modelo);
-
-  return new ImageResponse(<ArtePlaca codigo={placa.codigo} qrDataUri={qr} tamanho={LADO} modelo={modelo} fundo={fundo} />, {
-    width: LADO,
-    height: LADO,
-    headers: {
-      "Cache-Control": "private, no-store",
-      ...(baixar ? { "Content-Disposition": `attachment; filename="placa-${placa.codigo}-${modelo}.png"` } : {}),
-    },
-  });
+  return respostaArtePlaca(placa.codigo, modelo, baixar);
 }

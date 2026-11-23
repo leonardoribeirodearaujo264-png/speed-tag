@@ -1,13 +1,12 @@
 import { Suspense } from "react";
 import Link from "next/link";
-import { Building2, ExternalLink, Nfc, Search, UserRound } from "lucide-react";
-import { CabecalhoPagina, Painel } from "@/components/admin/ui";
+import { Building2, ExternalLink, Nfc, Pencil, Search, UserRound } from "lucide-react";
+import { CabecalhoPagina, Painel, classeBusca } from "@/components/admin/ui";
 import { CartaoListagem } from "@/components/admin/cartao-listagem";
 import { buttonVariants } from "@/components/ui/button";
 import { exigirAdmin } from "@/lib/auth";
 import { linkGooglePermitido } from "@/lib/google/dominios";
 import { FormEmpresa } from "@/components/placa/form-empresa";
-import { EditarNomeEmpresa } from "@/components/placa/editar-nome-empresa";
 import { DialogoEmpresa } from "@/components/placa/dialogo-empresa";
 
 const TAMANHO = 25;
@@ -34,11 +33,11 @@ async function Empresas({ searchParams }: { searchParams: PageProps<"/admin/empr
       {!cadastroDisponivel && <p role="status" className="mb-4 rounded-xl bg-amber-50 p-3 text-sm text-amber-900">O cadastro manual de empresas depende da atualização do banco de dados.</p>}
       <form role="search" className="mb-5 flex flex-wrap gap-2">
         <div className="relative min-w-40 flex-1 sm:max-w-md">
-          <Search className="absolute top-3 left-3 size-4 text-slate-500" aria-hidden />
-          <input name="q" type="search" defaultValue={busca} maxLength={80} aria-label="Nome da empresa" placeholder="Buscar empresa" className="h-10 w-full rounded-xl border border-slate-200 bg-white pr-3 pl-9 text-sm" />
+          <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-slate-500" aria-hidden />
+          <input name="q" type="search" defaultValue={busca} maxLength={80} aria-label="Nome da empresa" placeholder="Buscar empresa" className={classeBusca} />
         </div>
-        <button type="submit" className={buttonVariants({ className: "h-10" })}>Buscar</button>
-        {busca && <Link href="/admin/empresas" className={buttonVariants({ variant: "outline", className: "h-10" })}>Limpar</Link>}
+        <button type="submit" className={buttonVariants({ className: "h-11 px-4" })}>Buscar</button>
+        {busca && <Link href="/admin/empresas" className={buttonVariants({ variant: "outline", className: "h-11 px-4" })}>Limpar</Link>}
       </form>
       {error ? (
         <Painel><p role="alert" className="p-5">Não foi possível carregar as empresas.</p></Painel>
@@ -65,11 +64,9 @@ async function Empresas({ searchParams }: { searchParams: PageProps<"/admin/empr
                 </>}
               >
                 <div className="grid gap-2 sm:flex sm:flex-wrap">
-                  <DialogoEmpresa tipo="editar" botao="Editar dados" titulo={`Editar ${empresa.nome}`}>
-                    {cadastroDisponivel
-                      ? <FormEmpresa id={empresa.id} nome={empresa.nome} email={empresa.email_contato ?? ""} temLink={Boolean(empresa.link_avaliacao)} admin />
-                      : <EditarNomeEmpresa id={empresa.id} nome={empresa.nome} />}
-                  </DialogoEmpresa>
+                  <Link href={`/admin/empresas/${empresa.id}`} className={buttonVariants({ variant: "outline", className: "min-h-11 px-4" })}>
+                    <Pencil aria-hidden /> Editar dados
+                  </Link>
                   {empresa.dono_id && (
                     <Link href={`/admin/usuarios/${empresa.dono_id}`} className={buttonVariants({ variant: "outline", className: "min-h-11 px-4" })}>
                       <UserRound aria-hidden /> Ver titular
@@ -81,9 +78,9 @@ async function Empresas({ searchParams }: { searchParams: PageProps<"/admin/empr
           ))}
         </ul>
       )}
-      <nav aria-label="Paginação" className="mt-4 flex gap-4 text-sm text-marca-texto">
-        {pagina > 1 && <Link href={paginaUrl(pagina - 1)}>Anterior</Link>}
-        {pagina * TAMANHO < (count ?? 0) && <Link href={paginaUrl(pagina + 1)}>Próxima</Link>}
+      <nav aria-label="Paginação" className="mt-5 flex flex-wrap justify-center gap-3 text-sm">
+        {pagina > 1 && <Link href={paginaUrl(pagina - 1)} className={buttonVariants({ variant: "outline" })}>Anterior</Link>}
+        {pagina * TAMANHO < (count ?? 0) && <Link href={paginaUrl(pagina + 1)} className={buttonVariants({ variant: "outline" })}>Próxima</Link>}
       </nav>
     </>
   );

@@ -25,10 +25,11 @@ export function CartaoListagem({
           <h2 className="break-words font-semibold text-slate-900">{titulo}</h2>
           <p className="mt-0.5 break-words text-sm text-slate-500">{subtitulo}</p>
         </div>
-        <div className="flex shrink-0 items-center gap-1">{opcoes}</div>
+        <div className="-mt-1.5 -mr-1.5 flex shrink-0 items-center gap-0.5 md:mt-0 md:mr-0 md:gap-1">{opcoes}</div>
       </div>
       {children}
-      <div className="mt-auto flex flex-wrap items-center justify-end gap-2 border-t border-slate-100 pt-3">{acoes}</div>
+      {/* No celular os botões dividem a largura do cartão; no desktop ficam à direita. */}
+      <div className="mt-auto flex flex-wrap items-center justify-end gap-2 border-t border-slate-100 pt-3 max-sm:*:grow">{acoes}</div>
     </article>
   );
 }

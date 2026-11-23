@@ -2,6 +2,7 @@ import { Suspense, type ReactNode } from "react";
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import { LogoCompleta } from "@/components/marca/marca";
+import { FormAtivar } from "./form-ativar";
 import { codigoValido, normalizarCodigo } from "@/lib/codigos";
 import { clienteSupabaseServico, clienteSupabaseUsuario } from "@/lib/supabase/servidor";
 
@@ -47,21 +48,25 @@ async function Conteudo({ params }: { params: PageProps<"/ativar/[codigo]">["par
 
   const supabase = await clienteSupabaseUsuario();
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return (
+  if (user) {
+    const { data: liberado } = await supabase.rpc("speed_tag_acesso_cliente");
+    if (!liberado) return <Cartao>Seu acesso está indisponível. Fale com o suporte.</Cartao>;
+    // Placa já liberada para esta conta: ativa pelo painel, sem e-mail.
+    if (placa.dono_id === user.id) redirect(`/painel/empresas?placa=${codigo}`);
+  }
+
+  // Visitante do NFC/QR: escolhe a empresa e informa só o e-mail; confirma pelo link.
+  return (
     <Cartao>
-      <h1 className="text-xl font-semibold">Ativar placa {codigo}</h1>
-      <Link href={`/entrar?proximo=${encodeURIComponent(`/painel/empresas?placa=${codigo}`)}`} className="mt-4 inline-block font-medium text-marca-texto underline">
-        Criar conta ou entrar
-      </Link>
+      <FormAtivar codigo={codigo} emailSugerido={user?.email ?? undefined} />
+      <p className="mt-6 border-t border-slate-100 pt-4 text-center text-sm text-slate-500">
+        Já tem conta?{" "}
+        <Link href={`/entrar?proximo=${encodeURIComponent(`/painel/empresas?placa=${codigo}`)}`} className="font-medium text-marca-texto hover:underline">
+          Entrar e ativar
+        </Link>
+      </p>
     </Cartao>
   );
-  const { data: liberado } = await supabase.rpc("speed_tag_acesso_cliente");
-  if (!liberado) return <Cartao>Seu acesso está indisponível. Fale com o suporte.</Cartao>;
-  if ((placa.status === "atribuida" && placa.dono_id === user.id)
-    || (placa.status === "disponivel" && placa.preparada_nfc && placa.nfc_entregue_em)) {
-    redirect(`/painel/empresas?placa=${codigo}`);
-  }
-  return <Cartao>Esta placa aguarda liberação para a sua conta.</Cartao>;
 }
 
 export default function AtivarPlaca({ params }: PageProps<"/ativar/[codigo]">) {

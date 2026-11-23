@@ -4,6 +4,7 @@ import { useState, useTransition, type ReactNode } from "react";
 import { Ban, Bookmark, Loader2, Power, Undo2, UserPlus } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { classeCampo } from "./ui";
 import type { StatusPlaca } from "@/lib/supabase/tipos";
 import {
   atribuirPlacaAcao,
@@ -24,8 +25,6 @@ type Props = {
 
 type Formulario = "atribuir" | "reservar" | "desativar" | null;
 
-const classeCampo =
-  "h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-[15px] outline-none focus:border-marca focus:ring-4 focus:ring-marca/15";
 
 const EXPLICACAO: Record<StatusPlaca, string> = {
   disponivel: "Em estoque. Atribua a um cliente para ele poder ativar, ou reserve.",
@@ -72,7 +71,7 @@ export function PainelEstoque({ placaId, codigo, status, reservadaPara, cliente 
           inputMode={tipo === "email" ? "email" : undefined}
         />
       </label>
-      <div className="flex gap-2">
+      <div className="flex flex-wrap gap-2">
         <Button variant={perigo ? "destructive" : "default"} disabled={pendente || (!perigo && !valor.trim())} onClick={aoConfirmar}>
           {pendente && <Loader2 className="animate-spin" aria-hidden />}
           {confirmar}

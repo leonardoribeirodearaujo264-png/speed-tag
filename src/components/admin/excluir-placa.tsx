@@ -34,10 +34,10 @@ export function ExcluirPlaca({ placaId, codigo, ativa }: { placaId: string; codi
           value={digitado}
           onChange={(e) => setDigitado(e.target.value)}
           autoComplete="off"
-          className="h-10 rounded-lg border border-red-200 bg-white px-3 font-mono tracking-widest uppercase outline-none focus:ring-4 focus:ring-red-500/15"
+          className="h-11 w-full min-w-0 rounded-lg border border-red-200 bg-white px-3 font-mono tracking-widest uppercase outline-none focus:ring-4 focus:ring-red-500/15"
         />
       </label>
-      <div className="flex gap-2">
+      <div className="flex flex-wrap gap-2">
         <Button
           variant="destructive"
           disabled={!confere || pendente}
