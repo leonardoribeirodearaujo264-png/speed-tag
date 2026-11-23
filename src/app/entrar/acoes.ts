@@ -2,7 +2,7 @@
 
 import { z } from "zod";
 import { caminhoInternoSeguro } from "@/lib/auth";
-import { envPublico } from "@/lib/env";
+import { urlDoSite } from "@/lib/env";
 import { clienteSupabaseUsuario } from "@/lib/supabase/servidor";
 
 export type EstadoEntrar =
@@ -25,7 +25,7 @@ export async function enviarLinkMagico(_anterior: EstadoEntrar, dados: FormData)
   }
 
   const proximo = caminhoInternoSeguro(entrada.data.proximo, "/painel");
-  const retorno = new URL("/auth/confirmar", envPublico().NEXT_PUBLIC_SITE_URL);
+  const retorno = new URL("/auth/confirmar", urlDoSite());
   retorno.searchParams.set("proximo", proximo);
 
   const supabase = await clienteSupabaseUsuario();

@@ -48,6 +48,23 @@ export function envPublico(): EnvPublico {
   });
 }
 
+const HOSTS_LOCAIS = /^(localhost|127\.0\.0\.1|\[::1\]|0\.0\.0\.0)$/;
+
+/**
+ * Endereço público do site, usado nas URLs gravadas no NFC e impressas no QR e no
+ * retorno do login. Na produção da Vercel, um NEXT_PUBLIC_SITE_URL local (copiado do
+ * .env.local por engano) é trocado pelo domínio de produção que a própria Vercel
+ * informa, porque uma tag gravada com localhost nunca funcionaria para o cliente.
+ */
+export function urlDoSite(): string {
+  const configurada = envPublico().NEXT_PUBLIC_SITE_URL;
+  const producaoVercel = process.env.VERCEL_ENV === "production" ? process.env.VERCEL_PROJECT_PRODUCTION_URL : undefined;
+  if (producaoVercel && HOSTS_LOCAIS.test(new URL(configurada).hostname)) {
+    return `https://${producaoVercel}`;
+  }
+  return configurada.replace(/\/+$/, "");
+}
+
 let cacheServidor: EnvServidor | undefined;
 
 export function envServidor(): EnvServidor {

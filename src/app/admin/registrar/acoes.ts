@@ -2,7 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { z } from "zod";
-import { envPublico, exigeConfirmacaoEmail } from "@/lib/env";
+import { exigeConfirmacaoEmail, urlDoSite } from "@/lib/env";
 import { clienteSupabaseServico, clienteSupabaseUsuario } from "@/lib/supabase/servidor";
 
 export type EstadoRegistro =
@@ -35,7 +35,7 @@ export async function registrarAdmin(_anterior: EstadoRegistro, dados: FormData)
     return registrarSemConfirmacao(supabase, { ...entrada.data, campos });
   }
 
-  const retorno = new URL("/auth/confirmar", envPublico().NEXT_PUBLIC_SITE_URL);
+  const retorno = new URL("/auth/confirmar", urlDoSite());
   retorno.searchParams.set("proximo", "/admin/aguardando");
 
   const { data, error } = await supabase.auth.signUp({

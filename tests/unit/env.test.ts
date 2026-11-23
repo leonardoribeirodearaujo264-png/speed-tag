@@ -52,6 +52,19 @@ describe("env", () => {
     expect(exigeConfirmacaoEmail()).toBe(true);
   });
 
+  it("na produção da Vercel, troca endereço localhost pelo domínio de produção", async () => {
+    aplicar({ ...validas, NEXT_PUBLIC_SITE_URL: "http://localhost:3210", VERCEL_ENV: "production", VERCEL_PROJECT_PRODUCTION_URL: "speed-tag.vercel.app" });
+    const { urlDoSite } = await carregar();
+    expect(urlDoSite()).toBe("https://speed-tag.vercel.app");
+  });
+
+  it("mantém o endereço configurado quando ele é público ou fora da produção", async () => {
+    aplicar({ ...validas, NEXT_PUBLIC_SITE_URL: "https://meudominio.com.br/", VERCEL_ENV: "production", VERCEL_PROJECT_PRODUCTION_URL: "speed-tag.vercel.app" });
+    expect((await carregar()).urlDoSite()).toBe("https://meudominio.com.br");
+    aplicar({ NEXT_PUBLIC_SITE_URL: "http://localhost:3210", VERCEL_ENV: "preview" });
+    expect((await carregar()).urlDoSite()).toBe("http://localhost:3210");
+  });
+
   it("valida as públicas sem exigir as do servidor", async () => {
     aplicar({ ...validas, SUPABASE_SECRET_KEY: "" });
     const { envPublico } = await carregar();
