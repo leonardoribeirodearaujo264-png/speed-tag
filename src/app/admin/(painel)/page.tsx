@@ -34,6 +34,7 @@ const ROTULO_ACAO: Record<AcaoHistorico, string> = {
   desativou: "Desativada",
   reativou: "Reativada",
   tentativa_negada: "Tentativa de ativação negada",
+  editou_empresa: "Nome da empresa alterado",
   transferiu: "Transferida para outro cliente",
   mudou_lote: "Mudou de lote",
   reivindicou: "Placa assumida pelo cliente",

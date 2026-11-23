@@ -24,7 +24,7 @@ async function obterSessaoAdmin(): Promise<SessaoAdmin | "sem_login" | "sem_perm
 export async function exigirAdmin(proximo = "/admin"): Promise<SessaoAdmin> {
   const sessao = await obterSessaoAdmin();
   if (sessao === "sem_login") redirect(`/admin/entrar?proximo=${encodeURIComponent(proximo)}`);
-  if (sessao === "sem_permissao") redirect("/admin/aguardando");
+  if (sessao === "sem_permissao") redirect("/painel");
   return sessao;
 }
 
@@ -38,7 +38,8 @@ export async function verificarAdminApi(): Promise<SessaoAdmin | Response> {
 
 /** Aceita só caminhos internos, para o redirecionamento pós-login não virar open redirect. */
 export function caminhoInternoSeguro(valor: string | null | undefined, padrao = "/admin"): string {
-  if (!valor || !valor.startsWith("/") || valor.startsWith("//") || valor.includes("\\")) {
+  if (!valor || !valor.startsWith("/") || valor.startsWith("//") || valor.includes("\\") ||
+    [...valor].some((caractere) => caractere.charCodeAt(0) < 32 || caractere.charCodeAt(0) === 127)) {
     return padrao;
   }
   return valor;

@@ -2,13 +2,16 @@
 -- Cobrem RLS (cliente não vê placa de outro, não se promove a admin, anon não lê nada)
 -- e a ativação atômica.
 begin;
-select plan(19);
+select plan(28);
 
 -- Usuários de teste (o gatilho cria os perfis).
 insert into auth.users (id, email, email_confirmed_at, raw_user_meta_data) values
   ('11111111-1111-4111-8111-111111111111', 'ana@teste.dev', now(), '{}'),
   ('22222222-2222-4222-8222-222222222222', 'bia@teste.dev', now(), '{}'),
   ('33333333-3333-4333-8333-333333333333', 'adm@teste.dev', now(), '{}');
+insert into public.speed_tag_administradores (usuario_id)
+values ('33333333-3333-4333-8333-333333333333')
+on conflict (usuario_id) do nothing;
 update public.perfis set papel = 'admin' where id = '33333333-3333-4333-8333-333333333333';
 
 -- Placas em estoque; TST001 e TST002 atribuídas à Ana (o admin faria isso pelo painel).
@@ -115,6 +118,39 @@ set local request.jwt.claims = '{"sub":"11111111-1111-4111-8111-111111111111","r
 select throws_ok(
   $$ select public.criar_placas(array['NV0009']) $$,
   '42501', null, 'cliente não cria placa'
+);
+
+select is(public.eh_admin(), false, 'cliente não tem acesso administrativo');
+select throws_ok(
+  $$ select public.speed_tag_editar_cliente('11111111-1111-4111-8111-111111111111', 'Ana', null, false, 100) $$,
+  '42501', null, 'cliente não altera o limite da própria conta'
+);
+select is(public.speed_tag_criar_placa_propria('NV0010'), false, 'cadastro de tag própria exige limite configurado');
+select is(public.speed_tag_reivindicar_nfc('NV0001', repeat('a', 64)), false, 'código público não vincula tag sem entrega e segredo');
+select ok(
+  public.speed_tag_cadastrar_empresa('11111111-1111-4111-8111-111111111111',
+    'Empresa própria de teste', 'ana@teste.dev', 'https://g.page/r/teste/review') is not null,
+  'cliente cadastra empresa na própria conta'
+);
+select throws_ok(
+  $$ select public.speed_tag_cadastrar_empresa('22222222-2222-4222-8222-222222222222',
+    'Outra empresa', 'bia@teste.dev', null) $$,
+  '42501', null, 'cliente não cadastra empresa para outra conta'
+);
+select is(
+  public.speed_tag_vincular_empresa((select id from public.empresas where nome = 'Empresa própria de teste'), 'TST001'),
+  true, 'cliente vincula uma placa própria à sua empresa'
+);
+
+reset role;
+insert into public.speed_tag_administradores (usuario_id) values ('22222222-2222-4222-8222-222222222222');
+update public.perfis set papel = 'admin' where id = '22222222-2222-4222-8222-222222222222';
+set local role authenticated;
+set local request.jwt.claims = '{"sub":"22222222-2222-4222-8222-222222222222","role":"authenticated"}';
+select ok(public.eh_admin(), 'segunda conta autorizada também é administradora');
+select is(
+  public.speed_tag_editar_cliente('33333333-3333-4333-8333-333333333333', 'Admin', null, false, null) ->> 'ok',
+  'true', 'administrador pode editar outro administrador preservando seu papel'
 );
 
 select * from finish();

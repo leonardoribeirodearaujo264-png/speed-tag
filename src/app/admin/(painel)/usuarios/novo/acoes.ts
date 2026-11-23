@@ -9,6 +9,7 @@ import type { ResultadoDefinirAdmin } from "@/lib/supabase/tipos";
 export type EstadoNovoUsuario = { erro: string | null; campos: { nome: string; email: string; telefone: string } };
 
 const esquema = z.object({
+  grupo: z.enum(["revendedor", "comprador"]),
   nome: z.string().trim().min(2, "Digite o nome.").max(120),
   email: z.email("Digite um e-mail válido.").max(254),
   telefone: z.string().trim().max(30).regex(/^[0-9+() -]*$/, "Telefone com caracteres inválidos."),
@@ -27,9 +28,9 @@ export async function criarUsuarioAcao(_anterior: EstadoNovoUsuario, dados: Form
     email: String(dados.get("email") ?? "").trim().toLowerCase(),
     telefone: String(dados.get("telefone") ?? "").trim(),
   };
-  const entrada = esquema.safeParse({ ...campos, senha: dados.get("senha") });
+  const entrada = esquema.safeParse({ ...campos, senha: dados.get("senha"), grupo: dados.get("grupo") });
   if (!entrada.success) return { erro: entrada.error.issues[0]?.message ?? "Dados inválidos.", campos };
-  const { nome, email, telefone, senha } = entrada.data;
+  const { nome, email, telefone, senha, grupo } = entrada.data;
 
   const { data: existente } = await supabase.from("perfis").select("id").eq("email", email).maybeSingle();
   if (existente) redirect(`/admin/usuarios/${existente.id}?ja_existia=1`);
@@ -65,14 +66,18 @@ export async function criarUsuarioAcao(_anterior: EstadoNovoUsuario, dados: Form
     };
   }
 
-  const { error } = await supabase.rpc("admin_atualizar_usuario", {
+  const { data, error } = await supabase.rpc("speed_tag_editar_cliente_grupo", {
     p_usuario: usuarioId,
     p_nome: nome,
     p_telefone: telefone || null,
-    p_papel: "cliente",
     p_bloqueado: false,
+    p_grupo: grupo,
+    p_limite: null,
   });
-  if (error) console.error("[usuarios] dados iniciais não salvos", error.code);
+  if (error || (data as { ok?: boolean } | null)?.ok !== true) {
+    console.error("[usuarios] dados iniciais não salvos", error?.code);
+    redirect(`/admin/usuarios/${usuarioId}?cadastro_pendente=1`);
+  }
 
   redirect(`/admin/usuarios/${usuarioId}?criado=${criado.data.user ? "novo" : "existente"}`);
 }

@@ -20,9 +20,9 @@ export default function EntrarAdmin({ searchParams }: PageProps<"/admin/entrar">
       subtitulo="Entre para criar placas, gerar QR Codes e gravar o NFC."
       rodape={
         <>
-          Ainda não tem acesso?{" "}
-          <Link href="/admin/registrar" className="font-medium text-marca-texto hover:text-marca-texto hover:underline">
-            Criar conta
+          Já é cliente?{" "}
+          <Link href="/entrar" className="font-medium text-marca-texto hover:text-marca-texto hover:underline">
+            Acessar painel do cliente
           </Link>
         </>
       }

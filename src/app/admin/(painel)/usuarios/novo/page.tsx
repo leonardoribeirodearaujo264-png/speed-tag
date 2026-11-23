@@ -10,13 +10,14 @@ export const instant = false;
 
 export const metadata = { title: "Criar conta de cliente" };
 
-export default async function NovoUsuario() {
-  await exigirAdmin("/admin/usuarios/novo");
+export default async function NovoUsuario({ searchParams }: PageProps<"/admin/usuarios/novo">) {
+  const [, filtros] = await Promise.all([exigirAdmin("/admin/usuarios/novo"), searchParams]);
+  const grupo = filtros.grupo === "comprador" ? "comprador" : "revendedor";
 
   return (
     <div className="max-w-2xl">
-      <Link href="/admin/usuarios" className="mb-4 inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-800">
-        <ArrowLeft className="size-4" aria-hidden /> Usuários
+      <Link href={`/admin/usuarios?grupo=${grupo}`} className="mb-4 inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-800">
+        <ArrowLeft className="size-4" aria-hidden /> Voltar aos clientes
       </Link>
       <CabecalhoPagina
         sobretitulo="Gestão"
@@ -24,7 +25,7 @@ export default async function NovoUsuario() {
         descricao="A conta já nasce confirmada. Depois você atribui placas a ela pelo e-mail."
       />
       <Painel className="p-5 sm:p-6">
-        <FormNovoUsuario />
+        <FormNovoUsuario grupo={grupo} />
       </Painel>
     </div>
   );

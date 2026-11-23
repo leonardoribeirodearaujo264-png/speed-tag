@@ -1,0 +1,27 @@
+"use server";
+
+import { z } from "zod";
+import { caminhoInternoSeguro } from "@/lib/auth";
+import { urlDoSiteParaLogin } from "@/lib/env";
+import { clienteSupabaseUsuario } from "@/lib/supabase/servidor";
+
+type Estado = { tipo: "inicial" | "enviado" | "erro"; mensagem?: string };
+
+export async function solicitarRecuperacao(proximo: string, _anterior: Estado, dados: FormData): Promise<Estado> {
+  const email = z.email().max(254).safeParse(String(dados.get("email") ?? "").trim().toLowerCase());
+  if (!email.success) return { tipo: "erro", mensagem: "Informe um e-mail válido." };
+
+  const retorno = new URL("/auth/confirmar", urlDoSiteParaLogin());
+  retorno.searchParams.set("recuperar", "1");
+  retorno.searchParams.set("proximo", caminhoInternoSeguro(proximo, "/painel/empresas"));
+
+  const supabase = await clienteSupabaseUsuario();
+  const { error } = await supabase.auth.resetPasswordForEmail(email.data, { redirectTo: retorno.toString() });
+  if (error && error.code !== "user_not_found") {
+    console.error("[recuperar-senha] solicitação", error.status, error.code);
+    return { tipo: "erro", mensagem: error.status === 429
+      ? "Muitas tentativas. Aguarde um pouco e tente novamente."
+      : "A recuperação está indisponível agora. Tente novamente em instantes." };
+  }
+  return { tipo: "enviado" };
+}

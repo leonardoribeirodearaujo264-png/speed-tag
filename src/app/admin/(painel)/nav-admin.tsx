@@ -3,17 +3,17 @@
 import { Suspense } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Boxes, LayoutDashboard, Nfc, ShieldCheck, Tags, Users } from "lucide-react";
+import { Boxes, Building2, LayoutDashboard, Nfc, Tags, Users } from "lucide-react";
 import { cn } from "cn";
 import { ROTA_PREPARO_NFC } from "@/lib/placas/preparo-nfc";
 
 const ITENS = [
   { href: "/admin", rotulo: "Início", icone: LayoutDashboard, exato: true },
+  { href: "/admin/empresas", rotulo: "Empresas", icone: Building2, exato: false },
   { href: "/admin/placas", rotulo: "Placas", icone: Tags, exato: false },
   { href: ROTA_PREPARO_NFC, rotulo: "Preparar NFC", icone: Nfc, exato: false },
   { href: "/admin/lotes", rotulo: "Lotes", icone: Boxes, exato: false },
-  { href: "/admin/usuarios", rotulo: "Usuários", icone: Users, exato: false },
-  { href: "/admin/administradores", rotulo: "Administradores", icone: ShieldCheck, exato: false },
+  { href: "/admin/usuarios", rotulo: "Gestão de Clientes", icone: Users, exato: false },
 ] as const;
 
 type Variante = "lateral" | "topo";

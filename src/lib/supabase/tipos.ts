@@ -25,6 +25,7 @@ export type AcaoHistorico =
   | "desativou"
   | "reativou"
   | "tentativa_negada"
+  | "editou_empresa"
   | "transferiu"
   | "mudou_lote";
 
@@ -36,6 +37,7 @@ type Tabela<Row, Obrigatorios extends keyof Row> = {
 };
 
 export type Perfil = {
+  grupo_cliente: "revendedor" | "comprador" | null;
   id: string;
   nome: string | null;
   email: string | null;
@@ -43,6 +45,7 @@ export type Perfil = {
   solicitou_admin_em: string | null;
   admin_recusado_em: string | null;
   bloqueado_em: string | null;
+  limite_placas: number | null;
   telefone: string | null;
   criado_em: string;
   atualizado_em: string;
@@ -60,6 +63,7 @@ export type Lote = {
 };
 
 export type Empresa = {
+  email_contato: string | null;
   id: string;
   dono_id: string | null;
   origem: OrigemEmpresa;
@@ -175,6 +179,24 @@ export type Database = {
     };
     Views: { [_ in never]: never };
     Functions: {
+      speed_tag_cadastrar_empresa: { Args: { p_dono: string; p_nome: string; p_email: string; p_link: string | null }; Returns: string };
+      speed_tag_editar_empresa: { Args: { p_empresa: string; p_nome: string; p_email: string; p_link: string | null }; Returns: boolean };
+      speed_tag_vincular_empresa: { Args: { p_empresa: string; p_codigo: string }; Returns: boolean };
+      speed_tag_editar_cliente_grupo: {
+        Args: { p_usuario: string; p_nome: string | null; p_telefone: string | null; p_bloqueado: boolean; p_limite: number | null; p_grupo: Perfil["grupo_cliente"] };
+        Returns: Json;
+      };
+      speed_tag_contar_placas_clientes: { Args: { p_usuarios: string[] }; Returns: { usuario_id: string; total: number }[] };
+      speed_tag_remover_acesso_cliente: { Args: { p_usuario: string }; Returns: boolean };
+      speed_tag_acesso_cliente: { Args: Record<string, never>; Returns: boolean };
+      speed_tag_renomear_empresa: { Args: { p_empresa: string; p_nome: string }; Returns: boolean };
+      speed_tag_editar_cliente: {
+        Args: { p_usuario: string; p_nome: string | null; p_telefone: string | null; p_bloqueado: boolean; p_limite: number | null };
+        Returns: Json;
+      };
+      speed_tag_criar_placa_propria: { Args: { p_codigo: string }; Returns: boolean };
+      speed_tag_admin_transferir: { Args: { p_codigo: string; p_usuario: string }; Returns: boolean };
+      speed_tag_reivindicar_nfc: { Args: { p_codigo: string; p_hash: string | null }; Returns: boolean };
       placas_preparar_nfc: { Args: { p_codigo: string }; Returns: string };
       placas_etapa_nfc: {
         Args: { p_codigo: string; p_etapa: string; p_hash: string | null };

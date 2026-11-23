@@ -8,7 +8,7 @@ import { criarUsuarioAcao, type EstadoNovoUsuario } from "./acoes";
 const classeCampo =
   "h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-[15px] text-slate-900 outline-none focus:border-marca focus:ring-4 focus:ring-marca/15";
 
-export function FormNovoUsuario() {
+export function FormNovoUsuario({ grupo }: { grupo: "revendedor" | "comprador" }) {
   const [estado, acao, criando] = useActionState<EstadoNovoUsuario, FormData>(criarUsuarioAcao, {
     erro: null,
     campos: { nome: "", email: "", telefone: "" },
@@ -29,6 +29,13 @@ export function FormNovoUsuario() {
       <label className="flex flex-col gap-2 text-sm font-medium text-slate-700">
         E-mail
         <input name="email" type="email" required inputMode="email" defaultValue={estado.campos.email} className={classeCampo} />
+      </label>
+      <label className="flex flex-col gap-2 text-sm font-medium text-slate-700">
+        Tipo de cliente
+        <select name="grupo" defaultValue={grupo} className={classeCampo}>
+          <option value="revendedor">Revendedor</option>
+          <option value="comprador">Comprador de placas</option>
+        </select>
       </label>
       <label className="flex flex-col gap-2 text-sm font-medium text-slate-700">
         Senha inicial

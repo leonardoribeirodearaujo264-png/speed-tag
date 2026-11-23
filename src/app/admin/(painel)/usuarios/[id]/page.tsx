@@ -6,6 +6,8 @@ import { CabecalhoPagina, EstadoVazio, Painel, PilulaStatus, TituloPainel } from
 import { exigirAdmin } from "@/lib/auth";
 import { formatarData } from "@/lib/placas/rotulos";
 import { FormUsuario } from "./form-usuario";
+import { nomeUsuario } from "@/lib/nome-usuario";
+import { TransferirPlaca } from "./transferir-placa";
 
 // Painel com login: navegação espera o servidor (sessão lida a cada requisição).
 export const instant = false;
@@ -15,30 +17,35 @@ export const metadata = { title: "Usuário" };
 
 export default async function DetalheUsuario({ params, searchParams }: PageProps<"/admin/usuarios/[id]">) {
   const { id } = await params;
-  const { criado, ja_existia } = await searchParams;
-  const { supabase, usuarioId } = await exigirAdmin(`/admin/usuarios/${id}`);
+  const { criado, ja_existia, cadastro_pendente } = await searchParams;
+  const { supabase } = await exigirAdmin(`/admin/usuarios/${id}`);
   if (!z.uuid().safeParse(id).success) notFound();
 
   const { data: usuario, error } = await supabase
     .from("perfis")
-    .select("id, nome, email, telefone, papel, bloqueado_em, criado_em")
+    .select("id, nome, email, telefone, papel, bloqueado_em, limite_placas, criado_em, grupo_cliente")
     .eq("id", id)
     .maybeSingle();
   if (error) throw new Error("Falha ao carregar o usuário");
   if (!usuario) notFound();
 
-  const [{ data: placas }, { data: empresas }] = await Promise.all([
-    supabase.from("placas").select("id, codigo, status, empresa_id, ativada_em").eq("dono_id", id).order("criado_em", { ascending: false }),
+  const [{ data: placas, count: totalPlacas, error: erroPlacas }, { data: empresas }] = await Promise.all([
+    supabase.from("placas").select("id, codigo, status, empresa_id, ativada_em", { count: "exact" }).eq("dono_id", id).order("criado_em", { ascending: false }),
     supabase.from("empresas").select("id, nome").eq("dono_id", id).order("nome"),
   ]);
   const nomeEmpresa = new Map((empresas ?? []).map((e) => [e.id, e.nome]));
-  const inicial = (usuario.nome ?? usuario.email ?? "?").trim().charAt(0).toUpperCase();
+  const nome = nomeUsuario(usuario.nome, usuario.email);
+  const inicial = nome.charAt(0).toUpperCase();
+  const grupo = usuario.papel === "admin" ? "admin" : usuario.grupo_cliente ?? "pendente";
 
   return (
     <div>
-      <Link href="/admin/usuarios" className="mb-4 inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-800">
-        <ArrowLeft className="size-4" aria-hidden /> Usuários
+      <Link href={`/admin/usuarios?grupo=${grupo}`} className="mb-4 inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-800">
+        <ArrowLeft className="size-4" aria-hidden /> Voltar aos clientes
       </Link>
+      {cadastro_pendente && (
+        <p role="alert" className="mb-5 rounded-xl bg-amber-50 p-3 text-sm text-amber-900">A conta existe. Preencha os dados e o tipo de cliente nesta ficha para concluir o cadastro.</p>
+      )}
 
       {(criado || ja_existia) && (
         <div role="status" className="mb-6 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
@@ -55,11 +62,11 @@ export default async function DetalheUsuario({ params, searchParams }: PageProps
               {inicial}
             </span>
             <span className="min-w-0">
-              <span className="block truncate">{usuario.nome ?? "Sem nome"}</span>
+              <span className="block break-words">{nome}</span>
               <span className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm font-normal text-slate-500">
-                <span className="flex items-center gap-1.5">
+                {usuario.email && usuario.email !== nome && <span className="flex min-w-0 items-center gap-1.5 break-all">
                   <Mail className="size-3.5" aria-hidden /> {usuario.email}
-                </span>
+                </span>}
                 {usuario.telefone && (
                   <span className="flex items-center gap-1.5">
                     <Phone className="size-3.5" aria-hidden /> {usuario.telefone}
@@ -85,16 +92,18 @@ export default async function DetalheUsuario({ params, searchParams }: PageProps
               usuarioId={usuario.id}
               nome={usuario.nome}
               telefone={usuario.telefone}
-              papel={usuario.papel}
+              limite={usuario.limite_placas}
               bloqueado={!!usuario.bloqueado_em}
-              ehVoce={usuario.id === usuarioId}
+              administrador={usuario.papel === "admin"}
+              grupo={usuario.grupo_cliente}
             />
           </div>
         </Painel>
 
         <div className="flex flex-col gap-6">
           <Painel>
-            <TituloPainel titulo="Placas vinculadas" descricao={`${placas?.length ?? 0} no total`} />
+            <TituloPainel titulo="Placas vinculadas" descricao={erroPlacas ? "Contagem indisponível" : `${totalPlacas ?? 0} no total`} />
+            <TransferirPlaca usuarioId={id} />
             {!placas?.length ? (
               <EstadoVazio icone={Tags} titulo="Nenhuma placa" descricao="Este usuário ainda não tem placas na conta." />
             ) : (

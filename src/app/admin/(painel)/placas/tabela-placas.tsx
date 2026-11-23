@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
+import { Menu } from "@base-ui/react/menu";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -9,7 +10,8 @@ import {
 import { toast } from "sonner";
 import { Modal } from "@/components/admin/modal";
 import { PilulaStatus } from "@/components/admin/ui";
-import { Button } from "@/components/ui/button";
+import { CartaoListagem } from "@/components/admin/cartao-listagem";
+import { Button, buttonVariants } from "@/components/ui/button";
 import type { StatusPlaca } from "@/lib/supabase/tipos";
 import { alternarEmMassa, atribuirEmMassa, duplicarPlaca, moverLoteEmMassa, transferirEmMassa, type ResultadoMassa } from "./acoes-massa";
 
@@ -18,6 +20,7 @@ export type LinhaPlaca = {
   codigo: string;
   status: StatusPlaca;
   empresa: string | null;
+  titular: string | null;
   lote: string | null;
   nfc: "travado" | "gravado" | "pendente";
   criadaEm: string;
@@ -29,68 +32,53 @@ type Janela = "atribuir" | "transferir" | "lote" | "desativar" | null;
 const campo = "h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-[15px] outline-none focus:border-marca focus:ring-4 focus:ring-marca/15";
 
 function MenuLinha({ linha, executar }: { linha: LinhaPlaca; executar: (acao: () => Promise<ResultadoMassa>) => void }) {
-  const [aberto, setAberto] = useState(false);
-  const area = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!aberto) return;
-    const fora = (e: MouseEvent) => !area.current?.contains(e.target as Node) && setAberto(false);
-    const tecla = (e: KeyboardEvent) => e.key === "Escape" && setAberto(false);
-    document.addEventListener("mousedown", fora);
-    document.addEventListener("keydown", tecla);
-    return () => {
-      document.removeEventListener("mousedown", fora);
-      document.removeEventListener("keydown", tecla);
-    };
-  }, [aberto]);
-
-  const item = "flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-100";
-  const fechar = () => setAberto(false);
+  const item = "flex w-full cursor-pointer items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm text-slate-700 outline-none data-highlighted:bg-slate-100";
 
   return (
-    <div ref={area} className="relative">
-      <button type="button" onClick={() => setAberto((v) => !v)} aria-haspopup="menu" aria-expanded={aberto} aria-label={`Ações da placa ${linha.codigo}`} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700">
-        <MoreHorizontal className="size-5" />
-      </button>
-      {aberto && (
-        <div role="menu" className="absolute right-0 z-30 mt-1 w-56 rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl animate-in fade-in zoom-in-95">
-          <Link role="menuitem" href={`/admin/placas/${linha.codigo}`} className={item} onClick={fechar}>
-            <Eye className="size-4 text-slate-400" /> Ver detalhes
-          </Link>
-          <button role="menuitem" type="button" className={item} onClick={async () => {
-            fechar();
-            try {
-              await navigator.clipboard.writeText(linha.linkAtivacao);
-              toast.success("Link de ativação copiado");
-            } catch {
-              toast.error("Não foi possível copiar.");
-            }
-          }}>
-            <Copy className="size-4 text-slate-400" /> Copiar link de ativação
-          </button>
-          <a role="menuitem" href={`/api/admin/placas/${linha.codigo}/qr?formato=png&tamanho=1024&baixar=1`} className={item} onClick={fechar}>
-            <Download className="size-4 text-slate-400" /> Baixar QR Code
-          </a>
-          <button role="menuitem" type="button" className={item} onClick={() => { fechar(); executar(() => duplicarPlaca(linha.codigo)); }}>
-            <CopyPlus className="size-4 text-slate-400" /> Duplicar placa
-          </button>
-          <div className="my-1 h-px bg-slate-100" />
-          {linha.status === "desativada" ? (
-            <button role="menuitem" type="button" className={item} onClick={() => { fechar(); executar(() => alternarEmMassa([linha.codigo], "reativar")); }}>
-              <Power className="size-4 text-emerald-600" /> Reativar
-            </button>
-          ) : (
-            <button role="menuitem" type="button" className={`${item} text-red-600 hover:bg-red-50`} onClick={() => { fechar(); executar(() => alternarEmMassa([linha.codigo], "desativar")); }}>
-              <Ban className="size-4" /> Desativar
-            </button>
-          )}
-        </div>
-      )}
-    </div>
+    <Menu.Root modal={false}>
+      <Menu.Trigger aria-label={`Ações da placa ${linha.codigo}`} className="grid size-9 place-items-center rounded-lg text-slate-500 hover:bg-slate-100 focus-visible:ring-2 focus-visible:ring-marca">
+        <MoreHorizontal className="size-5" aria-hidden />
+      </Menu.Trigger>
+      <Menu.Portal>
+        <Menu.Positioner align="end" sideOffset={4} className="z-40">
+          <Menu.Popup className="max-h-[var(--available-height)] w-56 max-w-[var(--available-width)] overflow-auto rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl">
+            <Menu.LinkItem render={<Link href={`/admin/placas/${linha.codigo}`} />} closeOnClick className={item}>
+              <Eye className="size-4 text-slate-400" /> Ver detalhes
+            </Menu.LinkItem>
+            <Menu.Item className={item} onClick={async () => {
+              try {
+                await navigator.clipboard.writeText(linha.linkAtivacao);
+                toast.success("Link de ativação copiado");
+              } catch {
+                toast.error("Não foi possível copiar.");
+              }
+            }}>
+              <Copy className="size-4 text-slate-400" /> Copiar link de ativação
+            </Menu.Item>
+            <Menu.LinkItem href={`/api/admin/placas/${linha.codigo}/qr?formato=png&tamanho=1024&baixar=1`} className={item} closeOnClick>
+              <Download className="size-4 text-slate-400" /> Baixar QR Code
+            </Menu.LinkItem>
+            <Menu.Item className={item} onClick={() => executar(() => duplicarPlaca(linha.codigo))}>
+              <CopyPlus className="size-4 text-slate-400" /> Duplicar placa
+            </Menu.Item>
+            <Menu.Separator className="my-1 h-px bg-slate-100" />
+            {linha.status === "desativada" ? (
+              <Menu.Item className={item} onClick={() => executar(() => alternarEmMassa([linha.codigo], "reativar"))}>
+                <Power className="size-4 text-emerald-600" /> Reativar
+              </Menu.Item>
+            ) : (
+              <Menu.Item className={`${item} text-red-600 data-highlighted:bg-red-50`} onClick={() => executar(() => alternarEmMassa([linha.codigo], "desativar"))}>
+                <Ban className="size-4" /> Desativar
+              </Menu.Item>
+            )}
+          </Menu.Popup>
+        </Menu.Positioner>
+      </Menu.Portal>
+    </Menu.Root>
   );
 }
 
-export function TabelaPlacas({ linhas, lotes }: { linhas: LinhaPlaca[]; lotes: Array<{ id: string; nome: string }> }) {
+export function CartoesPlacas({ linhas, lotes }: { linhas: LinhaPlaca[]; lotes: Array<{ id: string; nome: string }> }) {
   const router = useRouter();
   const [selecionadas, setSelecionadas] = useState<Set<string>>(new Set());
   const [janela, setJanela] = useState<Janela>(null);
@@ -128,49 +116,52 @@ export function TabelaPlacas({ linhas, lotes }: { linhas: LinhaPlaca[]; lotes: A
 
   return (
     <>
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="text-left text-xs tracking-wide text-slate-500 uppercase">
-              <th className="w-10 py-3 pl-5">
-                <input type="checkbox" aria-label="Selecionar todas desta página" checked={todas} onChange={() => setSelecionadas(todas ? new Set() : new Set(linhas.map((l) => l.codigo)))} className="size-4 accent-marca" />
-              </th>
-              <th className="px-3 py-3 font-medium">Código</th>
-              <th className="px-3 py-3 font-medium">Situação</th>
-              <th className="hidden px-3 py-3 font-medium md:table-cell">Empresa</th>
-              <th className="hidden px-3 py-3 font-medium sm:table-cell">Lote</th>
-              <th className="px-3 py-3 font-medium">NFC</th>
-              <th className="hidden px-3 py-3 font-medium lg:table-cell">Criada em</th>
-              <th className="w-12 py-3 pr-4" aria-label="Ações" />
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100">
-            {linhas.map((l) => (
-              <tr key={l.id} className={`transition-colors ${selecionadas.has(l.codigo) ? "bg-marca-claro/60" : "hover:bg-slate-50/70"}`}>
-                <td className="py-3 pl-5">
-                  <input type="checkbox" aria-label={`Selecionar ${l.codigo}`} checked={selecionadas.has(l.codigo)} onChange={() => alternar(l.codigo)} className="size-4 accent-marca" />
-                </td>
-                <td className="px-3 py-3">
-                  <Link href={`/admin/placas/${l.codigo}`} className="font-mono font-semibold tracking-wider text-slate-900 hover:text-marca-texto hover:underline">{l.codigo}</Link>
-                </td>
-                <td className="px-3 py-3"><PilulaStatus status={l.status} /></td>
-                <td className="hidden max-w-48 truncate px-3 py-3 text-slate-600 md:table-cell">{l.empresa ?? <span className="text-slate-400">-</span>}</td>
-                <td className="hidden px-3 py-3 text-slate-500 sm:table-cell">{l.lote ?? "Avulsa"}</td>
-                <td className="px-3 py-3">
-                  {l.nfc === "travado" ? (
-                    <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-700"><Lock className="size-3.5" /> Travado</span>
-                  ) : l.nfc === "gravado" ? (
-                    <span className="inline-flex items-center gap-1 text-xs font-medium text-marca-texto"><Nfc className="size-3.5" /> Gravado</span>
-                  ) : (
-                    <span className="text-xs text-slate-400">Pendente</span>
-                  )}
-                </td>
-                <td className="hidden px-3 py-3 text-slate-500 lg:table-cell">{l.criadaEm}</td>
-                <td className="py-3 pr-4 text-right"><MenuLinha linha={l} executar={executar} /></td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      <div className="bg-slate-50/80 px-4 py-4 sm:px-5">
+        <label className="mb-4 inline-flex cursor-pointer items-center gap-2 text-sm font-medium text-slate-700">
+          <input type="checkbox" checked={todas} onChange={() => setSelecionadas(todas ? new Set() : new Set(linhas.map((l) => l.codigo)))} className="size-4 accent-marca" />
+          Selecionar placas desta página
+        </label>
+        <ul className="grid gap-3 lg:grid-cols-2">
+          {linhas.map((placa) => {
+            const selecionada = selecionadas.has(placa.codigo);
+            const detalhes = `/admin/placas/${placa.codigo}`;
+            return (
+              <li key={placa.id} className="min-w-0">
+                <CartaoListagem
+                  icone={<Nfc className="size-5" aria-hidden />}
+                  titulo={<Link href={detalhes} className="font-mono tracking-wider hover:underline">{placa.codigo}</Link>}
+                  subtitulo={placa.empresa ?? placa.titular ?? "Sem empresa vinculada"}
+                  selecionado={selecionada}
+                  opcoes={<>
+                    <input type="checkbox" aria-label={`Selecionar ${placa.codigo}`} checked={selecionada} onChange={() => alternar(placa.codigo)} className="size-4 accent-marca" />
+                    <MenuLinha linha={placa} executar={executar} />
+                  </>}
+                  acoes={<>
+                    <a href={`/api/admin/placas/${placa.codigo}/qr?formato=png&tamanho=1024&baixar=1`} className={buttonVariants({ variant: "outline" })}>
+                      <Download aria-hidden /> Baixar QR
+                    </a>
+                    <Link href={detalhes} className={buttonVariants()}>
+                      <Eye aria-hidden /> Abrir placa
+                    </Link>
+                  </>}
+                >
+                  <div className="flex flex-wrap items-center gap-2">
+                    <PilulaStatus status={placa.status} />
+                    <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600">
+                      {placa.nfc === "travado" && <Lock className="size-3" aria-hidden />}
+                      {placa.nfc === "travado" ? "NFC travado" : placa.nfc === "gravado" ? "NFC gravado" : "NFC pendente"}
+                    </span>
+                  </div>
+                  {placa.empresa && placa.titular && <p className="break-words text-sm text-slate-600">Titular: {placa.titular}</p>}
+                  <dl className="grid grid-cols-2 gap-3 text-sm">
+                    <div><dt className="text-xs text-slate-500">Lote</dt><dd className="break-words text-slate-700">{placa.lote ?? "Avulsa"}</dd></div>
+                    <div><dt className="text-xs text-slate-500">Criada em</dt><dd className="text-slate-700">{placa.criadaEm}</dd></div>
+                  </dl>
+                </CartaoListagem>
+              </li>
+            );
+          })}
+        </ul>
       </div>
 
       {selecionadas.size > 0 && (

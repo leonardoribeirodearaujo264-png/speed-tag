@@ -1,9 +1,27 @@
 "use server";
 
+import { redirect } from "next/navigation";
 import { z } from "zod";
 import { caminhoInternoSeguro } from "@/lib/auth";
-import { urlDoSite } from "@/lib/env";
+import { urlDoSiteParaLogin } from "@/lib/env";
 import { clienteSupabaseUsuario } from "@/lib/supabase/servidor";
+
+export async function entrarComSenha(proximo: string, _anterior: string, dados: FormData): Promise<string> {
+  const entrada = z.object({ email: z.email().max(254), password: z.string().min(1).max(200) }).safeParse({
+    email: String(dados.get("email") ?? "").trim().toLowerCase(), password: dados.get("senha"),
+  });
+  if (!entrada.success) return "Informe o e-mail e a senha da sua conta.";
+
+  const supabase = await clienteSupabaseUsuario();
+  const { error } = await supabase.auth.signInWithPassword(entrada.data);
+  if (error) return error.status === 429 ? "Muitas tentativas. Tente novamente em instantes." : "E-mail ou senha incorretos.";
+
+  const perfil = await supabase.rpc("garantir_perfil");
+  if (perfil.error) return "Não foi possível abrir sua conta. Tente novamente.";
+  const { error: erroVinculo } = await supabase.rpc("reivindicar_placas");
+  if (erroVinculo) console.error("[entrar] reivindicar_placas", erroVinculo.code);
+  redirect(caminhoInternoSeguro(proximo, "/painel/empresas"));
+}
 
 export type EstadoEntrar =
   | { tipo: "inicial" }
@@ -24,14 +42,14 @@ export async function enviarLinkMagico(_anterior: EstadoEntrar, dados: FormData)
     return { tipo: "erro", mensagem: entrada.error.issues[0]?.message ?? "Dados inválidos." };
   }
 
-  const proximo = caminhoInternoSeguro(entrada.data.proximo, "/painel");
-  const retorno = new URL("/auth/confirmar", urlDoSite());
+  const proximo = caminhoInternoSeguro(entrada.data.proximo, "/painel/empresas");
+  const retorno = new URL("/auth/confirmar", urlDoSiteParaLogin());
   retorno.searchParams.set("proximo", proximo);
 
   const supabase = await clienteSupabaseUsuario();
   const { error } = await supabase.auth.signInWithOtp({
     email: entrada.data.email,
-    options: { emailRedirectTo: retorno.toString() },
+    options: { emailRedirectTo: retorno.toString(), shouldCreateUser: true },
   });
 
   if (error) {

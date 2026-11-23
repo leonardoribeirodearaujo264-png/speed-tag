@@ -67,6 +67,11 @@ export function urlDoSite(): string {
   return configurada.replace(/\/+$/, "");
 }
 
+export function urlDoSiteParaLogin(): string {
+  const local = process.env.NODE_ENV === "development" ? process.env.AUTH_REDIRECT_SITE_URL?.trim() : null;
+  return local ? z.url().parse(local) : urlDoSite();
+}
+
 let cacheServidor: EnvServidor | undefined;
 
 export function envServidor(): EnvServidor {

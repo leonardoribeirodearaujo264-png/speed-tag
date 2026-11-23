@@ -4,22 +4,23 @@ import { useActionState, useEffect } from "react";
 import { Loader2, Save } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import type { PapelUsuario } from "@/lib/supabase/tipos";
+import type { Perfil } from "@/lib/supabase/tipos";
 import { salvarUsuario, type EstadoEdicaoUsuario } from "./acoes";
 
 type Props = {
   usuarioId: string;
   nome: string | null;
   telefone: string | null;
-  papel: PapelUsuario;
+  limite: number | null;
   bloqueado: boolean;
-  ehVoce: boolean;
+  administrador: boolean;
+  grupo: Perfil["grupo_cliente"];
 };
 
 const classeCampo =
   "h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-[15px] text-slate-900 outline-none focus:border-marca focus:ring-4 focus:ring-marca/15 disabled:bg-slate-50 disabled:text-slate-500";
 
-export function FormUsuario({ usuarioId, nome, telefone, papel, bloqueado, ehVoce }: Props) {
+export function FormUsuario({ usuarioId, nome, telefone, limite, bloqueado, administrador, grupo }: Props) {
   const [estado, acao, salvando] = useActionState<EstadoEdicaoUsuario, FormData>(salvarUsuario, { tipo: "inicial" });
 
   useEffect(() => {
@@ -41,13 +42,20 @@ export function FormUsuario({ usuarioId, nome, telefone, papel, bloqueado, ehVoc
         </label>
       </div>
 
+      <p className="text-sm font-medium">{administrador ? "Administrador" : "Cliente"}</p>
+      {!administrador && (
+        <label className="flex flex-col gap-2 text-sm font-medium text-slate-700">
+          Tipo de cliente
+          <select name="grupo" defaultValue={grupo ?? ""} className={classeCampo}>
+            <option value="">A classificar</option>
+            <option value="revendedor">Revendedor</option>
+            <option value="comprador">Comprador de placas</option>
+          </select>
+        </label>
+      )}
       <label className="flex flex-col gap-2 text-sm font-medium text-slate-700">
-        Permissão
-        <select name="papel" defaultValue={papel} disabled={ehVoce} className={classeCampo}>
-          <option value="cliente">Cliente: vê e edita só as próprias placas</option>
-          <option value="admin">Administrador: acesso total ao painel</option>
-        </select>
-        {ehVoce && <input type="hidden" name="papel" value={papel} />}
+        Limite de placas
+        <input type="number" name="limite" min={0} max={10000} defaultValue={limite ?? ""} placeholder="Sem limite" className={classeCampo} />
       </label>
 
       <label className="flex items-start gap-3 rounded-xl border border-slate-200 p-4 has-[:checked]:border-red-200 has-[:checked]:bg-red-50/50">
@@ -55,7 +63,7 @@ export function FormUsuario({ usuarioId, nome, telefone, papel, bloqueado, ehVoc
           type="checkbox"
           name="bloqueado"
           defaultChecked={bloqueado}
-          disabled={ehVoce}
+          disabled={administrador}
           className="mt-0.5 size-4 accent-red-600"
         />
         <span>
@@ -66,7 +74,7 @@ export function FormUsuario({ usuarioId, nome, telefone, papel, bloqueado, ehVoc
         </span>
       </label>
 
-      {ehVoce && <p className="text-sm text-slate-500">Esta é a sua conta: permissão e bloqueio não podem ser alterados por você.</p>}
+      {administrador && <p className="text-sm text-slate-500">As permissões desta conta administrativa são protegidas.</p>}
 
       <Button type="submit" size="lg" className="self-start px-5" disabled={salvando}>
         {salvando ? <Loader2 className="animate-spin" aria-hidden /> : <Save aria-hidden />}

@@ -1,5 +1,21 @@
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
+## E-mails de acesso e recuperação
+
+O Supabase Auth emite os links de acesso e recuperação. Para enviá-los pelo Resend, verifique o domínio remetente no Resend e configure SMTP personalizado no Supabase Auth.
+
+| Campo | Valor |
+| --- | --- |
+| Servidor SMTP | `smtp.resend.com` |
+| Porta | `465` |
+| Usuário | `resend` |
+| Senha | Chave de envio do Resend, guardada no painel do Supabase |
+| Remetente | Endereço no domínio verificado, por exemplo `acesso@speedtag.online` |
+
+Configure a URL pública do Supabase Auth como `https://www.speedtag.online` e permita o retorno em `https://www.speedtag.online/auth/confirmar`. No desenvolvimento, permita também a URL local de retorno configurada em `AUTH_REDIRECT_SITE_URL`. Use os modelos de e-mail do Supabase com `{{ .ConfirmationURL }}` e mantenha o rastreamento de cliques desativado no Resend para estes links.
+
+[SMTP no Resend](https://resend.com/changelog/smtp-service) · [SMTP personalizado no Supabase](https://supabase.com/docs/guides/auth/auth-smtp)
+
 ## Getting Started
 
 First, run the development server:

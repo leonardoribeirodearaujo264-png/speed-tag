@@ -35,8 +35,7 @@ export async function entrarAdmin(_anterior: EstadoEntrarAdmin, dados: FormData)
   await supabase.rpc("garantir_perfil");
   const { data: admin } = await supabase.rpc("eh_admin");
 
-  // Conta sem acesso de admin vai para a tela de aprovação, que registra o pedido.
-  if (admin !== true) redirect("/admin/aguardando");
+  if (admin !== true) redirect("/painel");
 
   const destino = caminhoInternoSeguro(entrada.data.proximo, "/admin/placas");
   redirect(destino.startsWith("/admin") ? destino : "/admin/placas");

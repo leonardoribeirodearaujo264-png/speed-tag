@@ -4,6 +4,7 @@ import { ArrowLeft, CheckCircle2, Download, ExternalLink, Printer } from "lucide
 import { BotaoCopiar } from "@/components/admin/botao-copiar";
 import { ExcluirPlaca } from "@/components/admin/excluir-placa";
 import { GravarNfc } from "@/components/admin/gravar-nfc";
+import { nomeUsuario } from "@/lib/nome-usuario";
 import { PainelEstoque } from "@/components/admin/painel-estoque";
 import { CabecalhoPagina, GraficoLeituras, Painel, PilulaStatus, TituloPainel } from "@/components/admin/ui";
 import { ArtePlaca } from "@/components/placa/arte-placa";
@@ -39,6 +40,7 @@ const ROTULO_ACAO: Record<AcaoHistorico, string> = {
   desativou: "Desativada",
   reativou: "Reativada",
   tentativa_negada: "Tentativa de ativação negada",
+  editou_empresa: "Nome da empresa alterado",
   transferiu: "Transferida para outro cliente",
   mudou_lote: "Mudou de lote",
   reivindicou: "Assumida pelo cliente",
@@ -219,7 +221,7 @@ export default async function DetalhePlaca({ params, searchParams }: PageProps<"
               <Dado rotulo="Cliente">
                 {dono ? (
                   <Link href={`/admin/usuarios/${dono.id}`} className="text-marca-texto hover:underline">
-                    {dono.nome ?? dono.email}
+                    {nomeUsuario(dono.nome, dono.email)}
                   </Link>
                 ) : (
                   <span className="text-slate-400">Sem dono</span>

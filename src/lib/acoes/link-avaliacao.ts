@@ -29,7 +29,9 @@ async function usuarioLogado() {
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  return user ? { supabase, usuarioId: user.id } : null;
+  if (!user) return null;
+  const { data: liberado } = await supabase.rpc("speed_tag_acesso_cliente");
+  return liberado ? { supabase, usuarioId: user.id } : null;
 }
 
 const SEM_LOGIN: Erro = { erro: "Sua sessão expirou. Entre de novo." };

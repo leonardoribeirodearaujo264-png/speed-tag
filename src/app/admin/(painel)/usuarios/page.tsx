@@ -1,10 +1,12 @@
 import Link from "next/link";
-import { Search, UserPlus, Users } from "lucide-react";
+import { Ellipsis, Pencil, Search, UserPlus, Users } from "lucide-react";
 import { z } from "zod";
 import { CabecalhoPagina, EstadoVazio, Painel } from "@/components/admin/ui";
 import { buttonVariants } from "@/components/ui/button";
 import { exigirAdmin } from "@/lib/auth";
-import { formatarData } from "@/lib/placas/rotulos";
+import { CartaoListagem } from "@/components/admin/cartao-listagem";
+import { RemoverAcesso } from "./[id]/remover-acesso";
+import { nomeUsuario } from "@/lib/nome-usuario";
 
 // Painel com login: navegação espera o servidor (sessão lida a cada requisição).
 export const instant = false;
@@ -16,7 +18,7 @@ const POR_PAGINA = 40;
 
 const filtros = z.object({
   q: z.string().trim().max(120).optional().catch(undefined),
-  papel: z.enum(["cliente", "admin"]).optional().catch(undefined),
+  grupo: z.enum(["revendedor", "comprador", "pendente", "admin"]).default("revendedor").catch("revendedor"),
   situacao: z.enum(["ativos", "bloqueados"]).optional().catch(undefined),
   pagina: z.coerce.number().int().min(1).max(1000).default(1).catch(1),
 });
@@ -30,7 +32,7 @@ export default async function ListaUsuarios({ searchParams }: PageProps<"/admin/
 
   let consulta = supabase
     .from("perfis")
-    .select("id, nome, email, telefone, papel, bloqueado_em, criado_em", { count: "exact" })
+    .select("id, nome, email, papel, bloqueado_em, grupo_cliente", { count: "exact" })
     .order("criado_em", { ascending: false })
     .range((f.pagina - 1) * POR_PAGINA, f.pagina * POR_PAGINA - 1);
 
@@ -39,7 +41,11 @@ export default async function ListaUsuarios({ searchParams }: PageProps<"/admin/
     const termo = f.q.replace(/[%,()"\\*]/g, " ").trim();
     if (termo) consulta = consulta.or(`nome.ilike."%${termo}%",email.ilike."%${termo}%"`);
   }
-  if (f.papel) consulta = consulta.eq("papel", f.papel);
+  if (f.grupo === "admin") consulta = consulta.eq("papel", "admin");
+  else {
+    consulta = consulta.eq("papel", "cliente");
+    consulta = f.grupo === "pendente" ? consulta.is("grupo_cliente", null) : consulta.eq("grupo_cliente", f.grupo);
+  }
   if (f.situacao === "bloqueados") consulta = consulta.not("bloqueado_em", "is", null);
   if (f.situacao === "ativos") consulta = consulta.is("bloqueado_em", null);
 
@@ -47,10 +53,8 @@ export default async function ListaUsuarios({ searchParams }: PageProps<"/admin/
 
   const contagem = new Map<string, number>();
   const ids = (usuarios ?? []).map((u) => u.id);
-  if (ids.length) {
-    const { data } = await supabase.from("placas").select("dono_id").in("dono_id", ids);
-    for (const p of data ?? []) if (p.dono_id) contagem.set(p.dono_id, (contagem.get(p.dono_id) ?? 0) + 1);
-  }
+  const quantidade = ids.length ? await supabase.rpc("speed_tag_contar_placas_clientes", { p_usuarios: ids }) : null;
+  for (const registro of quantidade?.data ?? []) contagem.set(registro.usuario_id, registro.total);
 
   const total = count ?? 0;
   const paginas = Math.max(1, Math.ceil(total / POR_PAGINA));
@@ -64,17 +68,30 @@ export default async function ListaUsuarios({ searchParams }: PageProps<"/admin/
     <div>
       <CabecalhoPagina
         sobretitulo="Gestão"
-        titulo="Usuários"
-        descricao="Clientes e administradores do app de placas. As mudanças valem só dentro deste painel."
+        titulo={f.grupo === "comprador" ? "Compradores de placas" : "Gestão de Clientes"}
+        descricao={`${total.toLocaleString("pt-BR")} ${total === 1 ? "conta encontrada" : "contas encontradas"}`}
         acoes={
-          <Link href="/admin/usuarios/novo" className={buttonVariants({ size: "lg" })}>
+          <Link href={`/admin/usuarios/novo?grupo=${f.grupo === "comprador" ? "comprador" : "revendedor"}`} className={buttonVariants({ size: "lg" })}>
             <UserPlus aria-hidden /> Criar conta de cliente
           </Link>
         }
       />
 
+      <nav aria-label="Tipos de conta" className="mb-4 flex flex-wrap gap-2">
+        {([
+          ["revendedor", "Revendedores"],
+          ["comprador", "Compradores de placas"],
+          ["pendente", "A classificar"],
+          ["admin", "Administradores"],
+        ] as const).map(([grupo, rotulo]) => (
+          <Link key={grupo} href={`/admin/usuarios?grupo=${grupo}`} aria-current={f.grupo === grupo ? "page" : undefined}
+            className={buttonVariants({ variant: f.grupo === grupo ? "default" : "outline" })}>{rotulo}</Link>
+        ))}
+        <Link href="/admin/placas" className={buttonVariants({ variant: "outline" })}>Estoque de placas</Link>
+      </nav>
       <Painel>
         <form className="flex flex-wrap items-center gap-2 border-b border-slate-100 p-4" role="search">
+          <input type="hidden" name="grupo" value={f.grupo} />
           <div className="relative min-w-56 flex-1">
             <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-slate-400" aria-hidden />
             <input
@@ -85,11 +102,6 @@ export default async function ListaUsuarios({ searchParams }: PageProps<"/admin/
               className="h-10 w-full rounded-xl border border-slate-200 bg-white pr-3 pl-9 text-sm outline-none focus:border-marca focus:ring-4 focus:ring-marca/15"
             />
           </div>
-          <select name="papel" defaultValue={f.papel ?? ""} aria-label="Papel" className={classeSelect}>
-            <option value="">Todos os papéis</option>
-            <option value="cliente">Clientes</option>
-            <option value="admin">Administradores</option>
-          </select>
           <select name="situacao" defaultValue={f.situacao ?? ""} aria-label="Situação" className={classeSelect}>
             <option value="">Todas as situações</option>
             <option value="ativos">Com acesso</option>
@@ -107,55 +119,39 @@ export default async function ListaUsuarios({ searchParams }: PageProps<"/admin/
         ) : !usuarios?.length ? (
           <EstadoVazio icone={Users} titulo="Nenhum usuário encontrado" descricao="Ajuste a busca ou os filtros." />
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="text-left text-xs font-medium tracking-wide text-slate-500 uppercase">
-                  <th className="px-5 py-3 font-medium">Usuário</th>
-                  <th className="px-5 py-3 font-medium">Papel</th>
-                  <th className="px-5 py-3 text-right font-medium">Placas</th>
-                  <th className="hidden px-5 py-3 font-medium md:table-cell">Situação</th>
-                  <th className="hidden px-5 py-3 font-medium lg:table-cell">Desde</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {usuarios.map((u) => {
-                  const inicial = (u.nome ?? u.email ?? "?").trim().charAt(0).toUpperCase();
-                  return (
-                    <tr key={u.id} className="transition-colors hover:bg-slate-50/70">
-                      <td className="px-5 py-3">
-                        <Link href={`/admin/usuarios/${u.id}`} className="flex items-center gap-3">
-                          <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-marca-claro text-sm font-semibold text-marca-texto ring-1 ring-marca-borda">
-                            {inicial}
-                          </span>
-                          <span className="min-w-0">
-                            <span className="block truncate font-medium text-slate-900 hover:underline">{u.nome ?? "Sem nome"}</span>
-                            <span className="block truncate text-slate-500">{u.email}</span>
-                          </span>
-                        </Link>
-                      </td>
-                      <td className="px-5 py-3">
-                        {u.papel === "admin" ? (
-                          <span className="rounded-full bg-marca-claro px-2.5 py-0.5 text-xs font-medium text-marca-texto ring-1 ring-marca-borda">Admin</span>
-                        ) : (
-                          <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-600 ring-1 ring-slate-200">Cliente</span>
-                        )}
-                      </td>
-                      <td className="px-5 py-3 text-right text-slate-700 tabular-nums">{contagem.get(u.id) ?? 0}</td>
-                      <td className="hidden px-5 py-3 md:table-cell">
-                        {u.bloqueado_em ? (
-                          <span className="text-xs font-medium text-red-600">Bloqueado</span>
-                        ) : (
-                          <span className="text-xs text-emerald-600">Com acesso</span>
-                        )}
-                      </td>
-                      <td className="hidden px-5 py-3 text-slate-500 lg:table-cell">{formatarData(u.criado_em)}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+          <ul className="grid gap-3 bg-slate-50 p-4 lg:grid-cols-2">
+            {usuarios.map((usuario) => {
+              const ficha = `/admin/usuarios/${usuario.id}`;
+              const placas = contagem.get(usuario.id) ?? 0;
+              const nome = nomeUsuario(usuario.nome, usuario.email);
+              return (
+                <li key={usuario.id} className="min-w-0">
+                  <CartaoListagem
+                    icone={<Users className="size-5" aria-hidden />}
+                    titulo={<Link href={ficha} className="hover:underline">{nome}</Link>}
+                    subtitulo={nome !== usuario.email ? usuario.email : null}
+                    opcoes={usuario.papel === "cliente" && !usuario.bloqueado_em && (
+                      <details className="relative">
+                        <summary aria-label={`Opções de ${usuario.nome ?? usuario.email ?? "cliente"}`} className="grid size-9 cursor-pointer list-none place-items-center rounded-lg hover:bg-slate-100 [&::-webkit-details-marker]:hidden">
+                          <Ellipsis className="size-5" aria-hidden />
+                        </summary>
+                        <div className="absolute top-full right-0 z-10 w-56 rounded-xl border bg-white p-3 shadow-lg">
+                          <Link href={ficha} className="text-sm font-medium text-marca-texto hover:underline">Editar cadastro</Link>
+                          <RemoverAcesso usuarioId={usuario.id} />
+                        </div>
+                      </details>
+                    )}
+                    acoes={<Link href={ficha} className={buttonVariants({ variant: "outline" })}><Pencil aria-hidden /> Editar</Link>}
+                  >
+                    <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
+                      <span className="font-medium text-slate-700">{quantidade?.error ? "Contagem indisponível" : `${placas} ${placas === 1 ? "placa" : "placas"}`}</span>
+                      <span className={usuario.bloqueado_em ? "text-red-700" : "text-emerald-700"}>{usuario.bloqueado_em ? "Acesso bloqueado" : "Com acesso"}</span>
+                    </div>
+                  </CartaoListagem>
+                </li>
+              );
+            })}
+          </ul>
         )}
       </Painel>
 

@@ -1,9 +1,9 @@
 import { Suspense, type ReactNode } from "react";
 import { notFound, redirect } from "next/navigation";
+import Link from "next/link";
 import { LogoCompleta } from "@/components/marca/marca";
 import { codigoValido, normalizarCodigo } from "@/lib/codigos";
-import { clienteSupabaseServico } from "@/lib/supabase/servidor";
-import { FormAtivar } from "./form-ativar";
+import { clienteSupabaseServico, clienteSupabaseUsuario } from "@/lib/supabase/servidor";
 
 export const metadata = { title: "Ativar placa", robots: { index: false } };
 
@@ -19,7 +19,8 @@ async function Conteudo({ params }: { params: PageProps<"/ativar/[codigo]">["par
   const codigo = normalizarCodigo((await params).codigo);
   if (!codigoValido(codigo)) notFound();
 
-  const { data: placa, error } = await clienteSupabaseServico().from("placas").select("status").eq("codigo", codigo).maybeSingle();
+  const { data: placa, error } = await clienteSupabaseServico().from("placas")
+    .select("status, dono_id, preparada_nfc, nfc_entregue_em").eq("codigo", codigo).maybeSingle();
   if (error) throw new Error("Falha ao consultar a placa");
   if (!placa) notFound();
   if (placa.status === "desativada") redirect(`/placa/${codigo}`);
@@ -44,11 +45,23 @@ async function Conteudo({ params }: { params: PageProps<"/ativar/[codigo]">["par
     );
   }
 
-  return (
+  const supabase = await clienteSupabaseUsuario();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return (
     <Cartao>
-      <FormAtivar codigo={codigo} />
+      <h1 className="text-xl font-semibold">Ativar placa {codigo}</h1>
+      <Link href={`/entrar?proximo=${encodeURIComponent(`/painel/empresas?placa=${codigo}`)}`} className="mt-4 inline-block font-medium text-marca-texto underline">
+        Criar conta ou entrar
+      </Link>
     </Cartao>
   );
+  const { data: liberado } = await supabase.rpc("speed_tag_acesso_cliente");
+  if (!liberado) return <Cartao>Seu acesso está indisponível. Fale com o suporte.</Cartao>;
+  if ((placa.status === "atribuida" && placa.dono_id === user.id)
+    || (placa.status === "disponivel" && placa.preparada_nfc && placa.nfc_entregue_em)) {
+    redirect(`/painel/empresas?placa=${codigo}`);
+  }
+  return <Cartao>Esta placa aguarda liberação para a sua conta.</Cartao>;
 }
 
 export default function AtivarPlaca({ params }: PageProps<"/ativar/[codigo]">) {

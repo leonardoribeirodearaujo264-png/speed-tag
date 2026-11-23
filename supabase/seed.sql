@@ -1,6 +1,10 @@
 -- Dados de desenvolvimento. Roda em `supabase db reset` (nunca em produção).
 -- Admin de teste: crie o usuário pelo Auth (link mágico) e depois rode:
+--   begin;
+--   insert into public.speed_tag_administradores (usuario_id)
+--     select id from public.perfis where email = '<seu e-mail>';
 --   update public.perfis set papel = 'admin' where email = '<seu e-mail>';
+--   commit;
 
 insert into public.lotes (id, nome, quantidade)
 values ('00000000-0000-4000-8000-000000000001', 'Lote de desenvolvimento', 5);

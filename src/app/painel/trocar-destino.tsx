@@ -14,7 +14,7 @@ export function TrocarDestino({ codigo }: { codigo: string }) {
   const [aberto, setAberto] = useState(false);
   return (
     <>
-      <Button variant="outline" size="sm" onClick={() => setAberto(true)}>
+      <Button variant="outline" className="min-h-11 grow sm:min-h-9 sm:grow-0" onClick={() => setAberto(true)}>
         <Link2 /> Trocar destino
       </Button>
       <Modal aberto={aberto} aoFechar={() => setAberto(false)} titulo={`Destino da placa ${codigo}`} descricao="Escolha a empresa ou cole o link. A placa passa a levar à nova avaliação na hora.">
