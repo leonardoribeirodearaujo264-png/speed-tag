@@ -24,7 +24,9 @@ export type AcaoHistorico =
   | "liberou"
   | "desativou"
   | "reativou"
-  | "tentativa_negada";
+  | "tentativa_negada"
+  | "transferiu"
+  | "mudou_lote";
 
 type Tabela<Row, Obrigatorios extends keyof Row> = {
   Row: Row;
@@ -233,6 +235,8 @@ export type Database = {
       admin_liberar_placa: { Args: { p_placa: string }; Returns: Json };
       admin_desativar_placa: { Args: { p_placa: string; p_motivo: string | null }; Returns: Json };
       admin_reativar_placa: { Args: { p_placa: string }; Returns: Json };
+      admin_transferir_placas: { Args: { p_codigos: string[]; p_usuario: string }; Returns: Json };
+      admin_mover_lote: { Args: { p_codigos: string[]; p_lote: string | null }; Returns: Json };
       email_tem_conta: { Args: { p_email: string }; Returns: boolean };
       usuario_por_email: { Args: { p_email: string }; Returns: string | null };
       ativar_placa_cliente: {

@@ -5,20 +5,23 @@ import { BotaoCopiar } from "@/components/admin/botao-copiar";
 import { ExcluirPlaca } from "@/components/admin/excluir-placa";
 import { GravarNfc } from "@/components/admin/gravar-nfc";
 import { PainelEstoque } from "@/components/admin/painel-estoque";
-import { CabecalhoPagina, Painel, PilulaStatus, TituloPainel } from "@/components/admin/ui";
+import { CabecalhoPagina, GraficoLeituras, Painel, PilulaStatus, TituloPainel } from "@/components/admin/ui";
 import { ArtePlaca } from "@/components/placa/arte-placa";
 import { buttonVariants } from "@/components/ui/button";
 import { exigirAdmin } from "@/lib/auth";
 import { buscarPlacaPorCodigo } from "@/lib/placas/consultas";
 import { gerarQrSvg, svgParaDataUri } from "@/lib/placas/qr";
+import { montarSerie } from "@/lib/placas/estatisticas";
 import { formatarData } from "@/lib/placas/rotulos";
 import { urlNfc, urlQr } from "@/lib/placas/urls";
 import { ROTA_PREPARO_NFC } from "@/lib/placas/preparo-nfc";
 import type { AcaoHistorico } from "@/lib/supabase/tipos";
+import { EditarPlaca } from "./editar-placa";
 
 // Painel com login: navegação espera o servidor (sessão lida a cada requisição).
 export const instant = false;
 
+const DIAS_ESTATISTICA = 30;
 
 const ROTULO_ACAO: Record<AcaoHistorico, string> = {
   criou: "Placa criada",
@@ -35,6 +38,8 @@ const ROTULO_ACAO: Record<AcaoHistorico, string> = {
   desativou: "Desativada",
   reativou: "Reativada",
   tentativa_negada: "Tentativa de ativação negada",
+  transferiu: "Transferida para outro cliente",
+  mudou_lote: "Mudou de lote",
   reivindicou: "Assumida pelo cliente",
 };
 
@@ -59,6 +64,28 @@ function Dado({ rotulo, children }: { rotulo: string; children: React.ReactNode 
   );
 }
 
+type Supabase = Awaited<ReturnType<typeof exigirAdmin>>["supabase"];
+
+/** Leituras da janela recente, agregadas por dia (NFC x QR). */
+async function estatisticasPlaca(supabase: Supabase, placaId: string) {
+  const agora = new Date();
+  const desde = new Date(agora.getTime() - DIAS_ESTATISTICA * 86_400_000).toISOString();
+  const { data } = await supabase
+    .from("leituras")
+    .select("ocorrida_em, origem")
+    .eq("placa_id", placaId)
+    .gte("ocorrida_em", desde)
+    .limit(10_000);
+  const leituras = data ?? [];
+  const serie = montarSerie(leituras, DIAS_ESTATISTICA, agora);
+  return {
+    serie,
+    totalNfc: serie.reduce((s, p) => s + p.nfc, 0),
+    totalQr: serie.reduce((s, p) => s + p.qr, 0),
+    ultimaLeitura: leituras.reduce<string | null>((max, l) => (!max || l.ocorrida_em > max ? l.ocorrida_em : max), null),
+  };
+}
+
 export default async function DetalhePlaca({ params, searchParams }: PageProps<"/admin/placas/[codigo]">) {
   const { codigo: codigoBruto } = await params;
   const { supabase } = await exigirAdmin(`/admin/placas/${codigoBruto}`);
@@ -72,7 +99,7 @@ export default async function DetalhePlaca({ params, searchParams }: PageProps<"
   if (placa.codigo !== codigoBruto) redirect(`/admin/placas/${placa.codigo}`);
 
   const { criada } = await searchParams;
-  const [qrSvg, lote, empresa, dono, historico, leituras] = await Promise.all([
+  const [qrSvg, lote, empresa, dono, historico, leituras, recentes, lotes] = await Promise.all([
     gerarQrSvg(urlQr(placa.codigo)),
     placa.lote_id
       ? supabase.from("lotes").select("id, nome").eq("id", placa.lote_id).maybeSingle().then((r) => r.data)
@@ -95,7 +122,10 @@ export default async function DetalhePlaca({ params, searchParams }: PageProps<"
       .select("id", { count: "exact", head: true })
       .eq("placa_id", placa.id)
       .then((r) => r.count ?? 0),
+    estatisticasPlaca(supabase, placa.id),
+    supabase.from("lotes").select("id, nome").order("criado_em", { ascending: false }).then((r) => r.data ?? []),
   ]);
+  const { serie, totalNfc, totalQr, ultimaLeitura } = recentes;
   const qrDataUri = svgParaDataUri(qrSvg);
   const base = `/api/admin/placas/${placa.codigo}`;
 
@@ -145,6 +175,25 @@ export default async function DetalhePlaca({ params, searchParams }: PageProps<"
           </Painel>
 
           <Painel>
+            <TituloPainel titulo={`Leituras nos últimos ${DIAS_ESTATISTICA} dias`} descricao={ultimaLeitura ? `Última leitura em ${formatarData(ultimaLeitura)}.` : "Nenhuma leitura no período."} />
+            <div className="px-5 pb-6 sm:px-6">
+              <div className="mb-4 grid grid-cols-3 gap-3">
+                {[
+                  { rotulo: "Total", valor: totalNfc + totalQr },
+                  { rotulo: "NFC", valor: totalNfc },
+                  { rotulo: "QR Code", valor: totalQr },
+                ].map((c) => (
+                  <div key={c.rotulo} className="rounded-xl bg-slate-50 px-3 py-2.5">
+                    <p className="text-xs text-slate-500">{c.rotulo}</p>
+                    <p className="text-xl font-semibold tracking-tight text-slate-900 tabular-nums">{c.valor.toLocaleString("pt-BR")}</p>
+                  </div>
+                ))}
+              </div>
+              <GraficoLeituras serie={serie} />
+            </div>
+          </Painel>
+
+          <Painel>
             <TituloPainel titulo="Vínculo" />
             <dl className="divide-y divide-slate-100 px-5 pb-3 sm:px-6">
               <Dado rotulo="Cliente">
@@ -186,6 +235,13 @@ export default async function DetalhePlaca({ params, searchParams }: PageProps<"
                 reservadaPara={placa.reservada_para}
                 cliente={dono ? { nome: dono.nome, email: dono.email } : null}
               />
+            </div>
+          </Painel>
+
+          <Painel>
+            <TituloPainel titulo="Editar placa" descricao="Lote, cliente, empresa ou uma cópia com código novo." />
+            <div className="px-5 pb-6 sm:px-6">
+              <EditarPlaca codigo={placa.codigo} status={placa.status} loteAtual={placa.lote_id} lotes={lotes} />
             </div>
           </Painel>
 

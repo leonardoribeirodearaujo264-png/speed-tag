@@ -1,22 +1,23 @@
 import Link from "next/link";
-import { Lock, Nfc, Plus, Search, Tags, Trash2 } from "lucide-react";
+import { Plus, Search, Tags, Trash2 } from "lucide-react";
 import { z } from "zod";
-import { CabecalhoPagina, EstadoVazio, Painel, PilulaStatus } from "@/components/admin/ui";
+import { CabecalhoPagina, EstadoVazio, Painel } from "@/components/admin/ui";
 import { buttonVariants } from "@/components/ui/button";
 import { exigirAdmin } from "@/lib/auth";
 import { normalizarCodigo } from "@/lib/codigos";
 import { ROTULO_STATUS, formatarData } from "@/lib/placas/rotulos";
+import { urlAtivacao } from "@/lib/placas/urls";
+import { TabelaPlacas } from "./tabela-placas";
 
 // Painel com login: navegação espera o servidor (sessão lida a cada requisição).
 export const instant = false;
-
 
 export const metadata = { title: "Placas" };
 
 const POR_PAGINA = 50;
 
 const filtros = z.object({
-  q: z.string().max(12).optional().catch(undefined),
+  q: z.string().trim().max(60).optional().catch(undefined),
   status: z.enum(["disponivel", "reservada", "atribuida", "ativa", "desativada"]).optional().catch(undefined),
   lote: z.union([z.uuid(), z.literal("sem")]).optional().catch(undefined),
   nfc: z.enum(["gravado", "pendente"]).optional().catch(undefined),
@@ -40,7 +41,15 @@ export default async function ListaPlacas({ searchParams }: PageProps<"/admin/pl
     .order("criado_em", { ascending: false })
     .range((f.pagina - 1) * POR_PAGINA, f.pagina * POR_PAGINA - 1);
 
-  if (f.q) consulta = consulta.ilike("codigo", `${normalizarCodigo(f.q).replace(/[%_]/g, "")}%`);
+  if (f.q) {
+    // Busca pelo código ou pelo nome da empresa (cliente).
+    const termo = f.q.replace(/[%_,()]/g, " ").trim();
+    const { data: achadas } = await supabase.from("empresas").select("id").ilike("nome", `%${termo}%`).limit(200);
+    const ids = (achadas ?? []).map((e) => e.id);
+    const codigo = normalizarCodigo(termo).replace(/[^A-Z0-9]/g, "");
+    const condicoes = [codigo.length >= 2 ? `codigo.ilike.${codigo}%` : "", ids.length ? `empresa_id.in.(${ids.join(",")})` : ""].filter(Boolean);
+    consulta = condicoes.length ? consulta.or(condicoes.join(",")) : consulta.eq("codigo", "-");
+  }
   if (f.status) consulta = consulta.eq("status", f.status);
   if (f.lote === "sem") consulta = consulta.is("lote_id", null);
   else if (f.lote) consulta = consulta.eq("lote_id", f.lote);
@@ -96,9 +105,9 @@ export default async function ListaPlacas({ searchParams }: PageProps<"/admin/pl
             <input
               name="q"
               defaultValue={f.q}
-              placeholder="Código"
-              aria-label="Buscar por código"
-              className="h-10 w-40 rounded-xl border border-slate-200 bg-white pr-3 pl-9 font-mono text-sm tracking-wider uppercase outline-none focus:border-marca focus:ring-4 focus:ring-marca/15"
+              placeholder="Código ou empresa"
+              aria-label="Buscar por código ou empresa"
+              className="h-10 w-56 rounded-xl border border-slate-200 bg-white pr-3 pl-9 text-sm outline-none focus:border-marca focus:ring-4 focus:ring-marca/15"
             />
           </div>
           <select name="status" defaultValue={f.status ?? ""} aria-label="Status" className={classeSelect}>
@@ -144,52 +153,19 @@ export default async function ListaPlacas({ searchParams }: PageProps<"/admin/pl
             }
           />
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="text-left text-xs tracking-wide text-slate-500 uppercase">
-                  <th className="px-5 py-3 font-medium">Código</th>
-                  <th className="px-5 py-3 font-medium">Status</th>
-                  <th className="hidden px-5 py-3 font-medium md:table-cell">Empresa</th>
-                  <th className="hidden px-5 py-3 font-medium sm:table-cell">Lote</th>
-                  <th className="px-5 py-3 font-medium">NFC</th>
-                  <th className="hidden px-5 py-3 font-medium lg:table-cell">Criada em</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {placas.map((p) => (
-                  <tr key={p.id} className="transition-colors hover:bg-slate-50/70">
-                    <td className="px-5 py-3">
-                      <Link href={`/admin/placas/${p.codigo}`} className="font-mono font-semibold tracking-wider text-slate-900 hover:text-marca-texto hover:underline">
-                        {p.codigo}
-                      </Link>
-                    </td>
-                    <td className="px-5 py-3">
-                      <PilulaStatus status={p.status} />
-                    </td>
-                    <td className="hidden max-w-48 truncate px-5 py-3 text-slate-600 md:table-cell">
-                      {p.empresa_id ? empresas.get(p.empresa_id) : <span className="text-slate-400">-</span>}
-                    </td>
-                    <td className="hidden px-5 py-3 text-slate-500 sm:table-cell">{p.lote_id ? nomeLote.get(p.lote_id) : "Avulsa"}</td>
-                    <td className="px-5 py-3">
-                      {p.nfc_travado ? (
-                        <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-700">
-                          <Lock className="size-3.5" aria-hidden /> Travado
-                        </span>
-                      ) : p.nfc_gravado_em ? (
-                        <span className="inline-flex items-center gap-1 text-xs font-medium text-marca-texto">
-                          <Nfc className="size-3.5" aria-hidden /> Gravado
-                        </span>
-                      ) : (
-                        <span className="text-xs text-slate-400">Pendente</span>
-                      )}
-                    </td>
-                    <td className="hidden px-5 py-3 text-slate-500 lg:table-cell">{formatarData(p.criado_em)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <TabelaPlacas
+            lotes={lotes ?? []}
+            linhas={placas.map((p) => ({
+              id: p.id,
+              codigo: p.codigo,
+              status: p.status,
+              empresa: p.empresa_id ? empresas.get(p.empresa_id) ?? null : null,
+              lote: p.lote_id ? nomeLote.get(p.lote_id) ?? null : null,
+              nfc: p.nfc_travado ? "travado" : p.nfc_gravado_em ? "gravado" : "pendente",
+              criadaEm: formatarData(p.criado_em),
+              linkAtivacao: urlAtivacao(p.codigo),
+            }))}
+          />
         )}
       </Painel>
 
