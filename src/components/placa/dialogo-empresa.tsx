@@ -2,10 +2,10 @@
 
 import type { ReactNode } from "react";
 import { Dialog } from "@base-ui/react/dialog";
-import { KeyRound, Link2, Nfc, Pencil, Plus, Unlink, X } from "lucide-react";
+import { KeyRound, Link2, Nfc, Pencil, Plus, Trash2, Unlink, X } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
 
-const icones = { criar: Plus, editar: Pencil, placa: Nfc, senha: KeyRound, remover: Unlink, destino: Link2 };
+const icones = { criar: Plus, editar: Pencil, placa: Nfc, senha: KeyRound, remover: Unlink, destino: Link2, excluir: Trash2 };
 
 /**
  * Botão que abre uma janela de diálogo. No celular vira painel inferior com altura máxima e
@@ -30,7 +30,7 @@ export function DialogoEmpresa({
   return (
     <Dialog.Root defaultOpen={abertoInicial} open={aberto} onOpenChange={aoMudar ? (valor) => aoMudar(valor) : undefined}>
       {!semGatilho && <Dialog.Trigger className={buttonVariants({
-        variant: tipo === "criar" ? "default" : "outline",
+        variant: tipo === "criar" ? "default" : tipo === "excluir" ? "destructive" : "outline",
         className: classeBotao ?? "min-h-11 w-full justify-center px-4 sm:w-auto",
       })}>
         <Icone aria-hidden /> {botao}
@@ -40,7 +40,7 @@ export function DialogoEmpresa({
         <Dialog.Popup className="fixed inset-x-0 bottom-0 z-50 flex max-h-[92dvh] flex-col rounded-t-3xl bg-white shadow-2xl outline-none sm:inset-x-auto sm:top-1/2 sm:bottom-auto sm:left-1/2 sm:max-h-[min(85dvh,48rem)] sm:w-[calc(100%_-_3rem)] sm:max-w-lg sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-2xl">
           <span aria-hidden className="mx-auto mt-2.5 h-1 w-10 shrink-0 rounded-full bg-slate-200 sm:hidden" />
           <div className="flex shrink-0 items-start gap-3 border-b border-slate-100 px-5 pt-3 pb-4 sm:px-6 sm:pt-6">
-            <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-marca-claro text-marca-texto">
+            <span className={`grid size-10 shrink-0 place-items-center rounded-xl ${tipo === "excluir" ? "bg-red-50 text-red-700" : "bg-marca-claro text-marca-texto"}`}>
               <Icone className="size-5" aria-hidden />
             </span>
             <div className="min-w-0 flex-1">

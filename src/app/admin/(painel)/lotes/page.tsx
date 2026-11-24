@@ -1,9 +1,10 @@
 import Link from "next/link";
-import { Plus } from "lucide-react";
+import { CheckCircle2, Plus } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { exigirAdmin } from "@/lib/auth";
 import { formatarData } from "@/lib/placas/rotulos";
+import { mensagemLoteExcluido } from "@/lib/placas/exclusao-lote";
 
 // Painel com login: navegação espera o servidor (sessão lida a cada requisição).
 export const instant = false;
@@ -11,8 +12,13 @@ export const instant = false;
 
 export const metadata = { title: "Lotes" };
 
-export default async function ListaLotes() {
+export default async function ListaLotes({ searchParams }: PageProps<"/admin/lotes">) {
   const { supabase } = await exigirAdmin("/admin/lotes");
+  const { excluido, placas } = await searchParams;
+  const avisoExclusao =
+    typeof excluido === "string" && excluido
+      ? mensagemLoteExcluido(excluido.slice(0, 120), Math.max(0, Number(placas) || 0))
+      : null;
   const { data: lotes, error } = await supabase
     .from("lotes")
     .select("id, nome, quantidade, revendedor, criado_em")
@@ -30,6 +36,13 @@ export default async function ListaLotes() {
           <Plus aria-hidden /> Criar lote
         </Link>
       </div>
+
+      {avisoExclusao && (
+        <div role="status" className="flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+          <CheckCircle2 className="size-4 shrink-0" aria-hidden />
+          {avisoExclusao}
+        </div>
+      )}
 
       {error ? (
         <p role="alert" className="rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">

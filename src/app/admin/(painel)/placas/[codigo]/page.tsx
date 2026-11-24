@@ -8,6 +8,8 @@ import { nomeUsuario } from "@/lib/nome-usuario";
 import { PainelEstoque } from "@/components/admin/painel-estoque";
 import { CabecalhoPagina, GraficoLeituras, Painel, PilulaStatus, TituloPainel } from "@/components/admin/ui";
 import { ArtePlaca } from "@/components/placa/arte-placa";
+import { DialogoEmpresa } from "@/components/placa/dialogo-empresa";
+import { FormRemoverPlaca } from "@/app/painel/empresas/form-remover-placa";
 import { buttonVariants } from "@/components/ui/button";
 import { exigirAdmin } from "@/lib/auth";
 import { buscarPlacaPorCodigo } from "@/lib/placas/consultas";
@@ -243,6 +245,15 @@ export default async function DetalhePlaca({ params, searchParams }: PageProps<"
                 )}
               </Dado>
             </dl>
+            {placa.empresa_id && empresa && (
+              <div className="border-t border-slate-100 px-5 pt-4 pb-6 sm:px-6">
+                <DialogoEmpresa tipo="remover" botao="Remover empresa desta placa" titulo={`Remover empresa da placa ${placa.codigo}`}
+                  descricao={`A placa deixa de levar à avaliação de ${empresa.nome}.`}
+                  classeBotao="min-h-11 w-full justify-center px-4 text-red-700 hover:text-red-800 sm:w-auto">
+                  <FormRemoverPlaca empresa={placa.empresa_id} codigo={placa.codigo} nomeEmpresa={empresa.nome} />
+                </DialogoEmpresa>
+              </div>
+            )}
           </Painel>
         </div>
 

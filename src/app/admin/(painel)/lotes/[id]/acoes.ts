@@ -1,9 +1,11 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { z } from "zod";
 import { exigirAdmin } from "@/lib/auth";
 import { MODELOS_ARTE, NOMES_MODELOS, type ModeloArte } from "@/lib/placas/modelos-arte";
+import { interpretarExclusaoLote, type ResultadoExclusaoLote } from "@/lib/placas/exclusao-lote";
 
 export type EstadoAtribuirLote = { tipo: "inicial" } | { tipo: "sucesso"; mensagem: string } | { tipo: "erro"; mensagem: string };
 
@@ -82,4 +84,29 @@ export async function trocarModeloLoteAcao(loteId: string, modelo: string): Prom
   if (!data) return { ok: false, mensagem: "Lote não encontrado." };
   revalidatePath(`/admin/lotes/${loteId}`);
   return { ok: true, mensagem: `Arte do lote trocada para ${MODELOS_ARTE[modelo as ModeloArte].rotulo}.` };
+}
+
+/**
+ * Exclui o lote e as placas dele pela função do banco (só ADM, migração 0025).
+ * A regra de bloqueio (placas ativas, aguardando ativação ou com dono) é conferida de novo no banco.
+ */
+export async function excluirLoteAcao(loteId: string): Promise<ResultadoExclusaoLote> {
+  const { supabase } = await exigirAdmin(`/admin/lotes/${loteId}`);
+  if (!z.uuid().safeParse(loteId).success) return { ok: false, mensagem: "Lote inválido." };
+
+  const { data, error } = await supabase.rpc("speed_tag_excluir_lote", { p_lote: loteId });
+  if (error) {
+    console.error("[lotes] excluir falhou", error.code);
+    return {
+      ok: false,
+      mensagem: error.code === "PGRST202" ? "Rode a migração 0025 no Supabase antes de excluir lotes." : "Não foi possível excluir o lote agora. Tente de novo.",
+    };
+  }
+  const resultado = interpretarExclusaoLote(data);
+  if (!resultado.ok) return resultado;
+
+  revalidatePath("/admin/lotes");
+  revalidatePath("/admin/placas");
+  revalidatePath("/admin");
+  redirect(`/admin/lotes?excluido=${encodeURIComponent(resultado.nome)}&placas=${resultado.placasApagadas}`);
 }

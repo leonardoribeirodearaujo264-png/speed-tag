@@ -61,20 +61,26 @@ export async function vincularEmpresaPlaca(empresa: string, _anterior: string, d
   return `Placa ${codigo} vinculada à empresa.`;
 }
 
-export async function removerPlacaDaEmpresa(empresa: string, codigo: string, _anterior: string, dados: FormData) {
+export type EstadoRemoverPlaca = { ok: boolean; mensagem: string };
+
+/** Tira a empresa da placa (speed_tag_remover_placa_da_empresa; desde a migração 0024 só o ADM). */
+export async function removerPlacaDaEmpresa(empresa: string, codigo: string, _anterior: EstadoRemoverPlaca, dados: FormData): Promise<EstadoRemoverPlaca> {
   if (!z.uuid().safeParse(empresa).success || !codigoValido(codigo) || dados.get("confirmar") !== "on") {
-    return "Confirme a remoção da placa.";
+    return { ok: false, mensagem: "Confirme a remoção da empresa." };
   }
   const supabase = await clienteSupabaseUsuario();
   const { data, error } = await supabase.rpc("speed_tag_remover_placa_da_empresa", { p_empresa: empresa, p_codigo: codigo });
-  if (error?.code === "PGRST202") return "A remoção depende da atualização do banco de dados.";
-  if (error || !data) return "Não foi possível remover esta placa da empresa.";
+  if (error?.code === "PGRST202") return { ok: false, mensagem: "A remoção depende da atualização do banco de dados." };
+  if (error || !data) {
+    return { ok: false, mensagem: "Não foi possível remover a empresa desta placa. A placa pode ter mudado de empresa ou de cliente; recarregue a página." };
+  }
   revalidatePath("/painel");
   revalidatePath("/painel/empresas");
   revalidatePath(`/painel/empresas/${empresa}`);
   revalidatePath(`/admin/empresas/${empresa}`);
+  revalidatePath("/admin/placas");
   revalidatePath(`/admin/placas/${codigo}`);
-  return "Placa removida da empresa.";
+  return { ok: true, mensagem: `Empresa removida da placa ${codigo}.` };
 }
 
 export async function definirSenhaCliente(_anterior: { mensagem: string; ok: boolean }, dados: FormData) {

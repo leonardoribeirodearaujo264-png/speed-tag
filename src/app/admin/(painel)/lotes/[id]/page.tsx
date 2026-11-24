@@ -9,6 +9,8 @@ import { formatarData } from "@/lib/placas/rotulos";
 import type { StatusPlaca } from "@/lib/supabase/tipos";
 import { FormAtribuirLote } from "./form-atribuir";
 import { FormModeloLote } from "./form-modelo";
+import { ExcluirLote } from "./excluir-lote";
+import { FILTRO_PLACAS_EM_USO } from "@/lib/placas/exclusao-lote";
 import { modeloArte } from "@/lib/placas/modelos-arte";
 
 // Painel com login: navegação espera o servidor (sessão lida a cada requisição).
@@ -17,9 +19,10 @@ export const instant = false;
 
 type Supabase = Awaited<ReturnType<typeof exigirAdmin>>["supabase"];
 
-async function contar(supabase: Supabase, loteId: string, filtro: StatusPlaca | "todas" | "nfc"): Promise<number> {
+async function contar(supabase: Supabase, loteId: string, filtro: StatusPlaca | "todas" | "nfc" | "em_uso"): Promise<number> {
   let consulta = supabase.from("placas").select("id", { count: "exact", head: true }).eq("lote_id", loteId);
   if (filtro === "nfc") consulta = consulta.not("nfc_gravado_em", "is", null);
+  else if (filtro === "em_uso") consulta = consulta.or(FILTRO_PLACAS_EM_USO);
   else if (filtro !== "todas") consulta = consulta.eq("status", filtro);
   const { count } = await consulta;
   return count ?? 0;
@@ -38,12 +41,13 @@ export default async function DetalheLote({ params, searchParams }: PageProps<"/
   if (error) throw new Error("Falha ao carregar o lote");
   if (!lote) notFound();
 
-  const [total, disponiveis, atribuidas, ativas, comNfc] = await Promise.all([
+  const [total, disponiveis, atribuidas, ativas, comNfc, emUso] = await Promise.all([
     contar(supabase, id, "todas"),
     contar(supabase, id, "disponivel"),
     contar(supabase, id, "atribuida"),
     contar(supabase, id, "ativa"),
     contar(supabase, id, "nfc"),
+    contar(supabase, id, "em_uso"),
   ]);
   const { criado } = await searchParams;
   const exportar = `/api/admin/lotes/${id}/exportar`;
@@ -66,9 +70,12 @@ export default async function DetalheLote({ params, searchParams }: PageProps<"/
         titulo={lote.nome}
         descricao={`Criado em ${formatarData(lote.criado_em)}${lote.revendedor ? ` · Revendedor: ${lote.revendedor}` : ""}`}
         acoes={
-          <Link href={`/admin/placas?lote=${id}`} className={buttonVariants({ variant: "outline", size: "lg" })}>
-            <Tags aria-hidden /> Ver placas
-          </Link>
+          <>
+            <Link href={`/admin/placas?lote=${id}`} className={buttonVariants({ variant: "outline", className: "min-h-11 px-4 sm:min-h-9" })}>
+              <Tags aria-hidden /> Ver placas
+            </Link>
+            <ExcluirLote loteId={id} nome={lote.nome} total={total} emUso={emUso} nfcGravado={comNfc} />
+          </>
         }
       />
 

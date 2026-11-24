@@ -109,9 +109,10 @@ export async function GerenciarEmpresa({ id, busca, admin = false }: {
                         <Download aria-hidden /> Baixar QR Code
                       </a>
                     )}
-                    <DialogoEmpresa tipo="remover" botao="Desvincular placa" titulo={`Desvincular placa ${placa.codigo}`}
-                      descricao="A placa continua na sua conta e pode ser vinculada novamente.">
-                      <FormRemoverPlaca empresa={id} codigo={placa.codigo} />
+                    <DialogoEmpresa tipo="remover" botao="Remover empresa desta placa" titulo={`Remover empresa da placa ${placa.codigo}`}
+                      descricao="A placa continua com o mesmo cliente e pode ser vinculada a outra empresa depois."
+                      classeBotao="min-h-11 w-full justify-center px-4 text-red-700 hover:text-red-800 md:w-auto">
+                      <FormRemoverPlaca empresa={id} codigo={placa.codigo} nomeEmpresa={dados.nome} />
                     </DialogoEmpresa>
                   </div>
                 </li>
