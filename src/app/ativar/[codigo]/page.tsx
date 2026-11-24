@@ -55,16 +55,22 @@ async function Conteudo({ params }: { params: PageProps<"/ativar/[codigo]">["par
     if (placa.dono_id === user.id) redirect(`/painel/empresas?placa=${codigo}`);
   }
 
-  // Visitante do NFC/QR: escolhe a empresa e informa só o e-mail; confirma pelo link.
+  if (placa.dono_id) {
+    return (
+      <Cartao>
+        <p className="text-center text-sm text-slate-600">
+          Entre na conta do titular para ativar esta placa.
+        </p>
+        <Link href={`/entrar?proximo=${encodeURIComponent(`/painel/empresas?placa=${codigo}`)}`} className="mt-4 block text-center font-medium text-marca-texto hover:underline">
+          Entrar e ativar
+        </Link>
+      </Cartao>
+    );
+  }
+
   return (
     <Cartao>
       <FormAtivar codigo={codigo} emailSugerido={user?.email ?? undefined} />
-      <p className="mt-6 border-t border-slate-100 pt-4 text-center text-sm text-slate-500">
-        Já tem conta?{" "}
-        <Link href={`/entrar?proximo=${encodeURIComponent(`/painel/empresas?placa=${codigo}`)}`} className="font-medium text-marca-texto hover:underline">
-          Entrar e ativar
-        </Link>
-      </p>
     </Cartao>
   );
 }

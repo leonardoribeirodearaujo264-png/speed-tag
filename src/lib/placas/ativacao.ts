@@ -90,9 +90,15 @@ export async function ativarPlaca(codigoBruto: string, emailBruto: string, orige
   const conta = await contaDoEmail(email.data);
   if ("erro" in conta) return conta;
 
+  const resultado = await ativarParaConta(placa.codigo, conta.id, origem, placeId, nome, link);
+  if ("erro" in resultado) return resultado;
+  return { ativada: true, emailEnviado: conta.nova ? true : await enviarAcesso(email.data) };
+}
+
+export async function ativarParaConta(codigo: string, usuarioId: string, origem: OrigemEmpresa, placeId: string | null, nome: string, link: string): Promise<{ ativada: true } | Erro> {
   const { data, error } = await clienteSupabaseServico().rpc("ativar_placa_cliente", {
-    p_codigo: placa.codigo,
-    p_ator: conta.id,
+    p_codigo: codigo,
+    p_ator: usuarioId,
     p_origem: origem,
     p_place_id: placeId,
     p_nome: nome,
@@ -102,11 +108,12 @@ export async function ativarPlaca(codigoBruto: string, emailBruto: string, orige
     console.error("[ativar] ativar_placa_cliente", error.code);
     return { erro: "Não foi possível ativar agora. Tente de novo." };
   }
-  const r = data as { ok: boolean; erro?: string };
-  if (!r.ok) return { erro: MENSAGENS[r.erro ?? ""] ?? "Não foi possível ativar." };
+  if (!data || typeof data !== "object" || Array.isArray(data) || data.ok !== true) {
+    const motivo = data && typeof data === "object" && !Array.isArray(data) && typeof data.erro === "string" ? data.erro : "";
+    return { erro: MENSAGENS[motivo] ?? "Não foi possível ativar." };
+  }
 
-  revalidatePath(`/admin/placas/${placa.codigo}`);
-  revalidatePath(`${ROTA_PREPARO_NFC}/${placa.codigo}`);
-  // Conta nova já recebeu o convite (criar senha); conta existente recebe o link de acesso.
-  return { ativada: true, emailEnviado: conta.nova ? true : await enviarAcesso(email.data) };
+  revalidatePath(`/admin/placas/${codigo}`);
+  revalidatePath(`${ROTA_PREPARO_NFC}/${codigo}`);
+  return { ativada: true };
 }

@@ -1,14 +1,14 @@
 "use client";
 
 import { useState, useTransition, type FormEvent } from "react";
-import { ArrowLeft, Check, ChevronRight, ExternalLink, Lightbulb, Loader2, Mail, MailCheck, MapPin, Search, Star, Wand2, Zap } from "lucide-react";
+import { ArrowLeft, Check, ChevronRight, ExternalLink, Lightbulb, Loader2, Mail, MapPin, Search, Star, Wand2, Zap } from "lucide-react";
 import { useRouter } from "next/navigation";
 import type { EmpresaGerada } from "@/lib/google/gerador";
 import type { EmpresaEncontrada } from "@/lib/google/places";
-import { ativarComGoogle, identificarPorLink, pesquisarEmpresa, solicitarAtivacao, verDetalhesEmpresa, type ResultadoAtivacao } from "./acoes";
+import { ativarComGoogle, identificarPorLink, pesquisarEmpresa, ativarPorEmail, verDetalhesEmpresa, type ResultadoAtivacao } from "./acoes";
 
 type Escolha = { empresa: EmpresaGerada; viaLink?: boolean };
-type Etapa = "empresa" | "manual" | "quase" | "enviado";
+type Etapa = "empresa" | "manual" | "quase" | "ativada";
 
 const campo =
   "h-12 w-full rounded-xl border border-slate-200 bg-slate-50/60 px-4 text-base text-slate-900 outline-none transition placeholder:text-slate-400 hover:border-slate-300 focus:border-marca focus:bg-white focus:ring-4 focus:ring-marca/15";
@@ -66,14 +66,10 @@ function Erro({ texto }: { texto: string }) {
   return texto ? <p role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{texto}</p> : null;
 }
 
-/**
- * Ativação da placa. Sem `email` (visitante do NFC): pede o e-mail e manda a confirmação;
- * a placa só vai para a conta depois do link. Com `email` (cliente logado): ativa na hora.
- */
+/** Ativação pelo NFC ou pela conta já autenticada. */
 export function FormAtivar({ codigo, email: emailConta, emailSugerido }: { codigo: string; email?: string; emailSugerido?: string }) {
   const publico = !emailConta;
   const [email, setEmail] = useState(emailConta ?? emailSugerido ?? "");
-  const [enviadoPara, setEnviadoPara] = useState("");
   const router = useRouter();
   const [etapa, setEtapa] = useState<Etapa>("empresa");
   const [consulta, setConsulta] = useState("");
@@ -113,27 +109,19 @@ export function FormAtivar({ codigo, email: emailConta, emailSugerido }: { codig
     router.replace(`/painel/empresas?ativada=${encodeURIComponent(codigo)}`);
   }
 
-  if (etapa === "enviado") {
+  if (etapa === "ativada") {
     return (
       <div className="flex flex-col items-center gap-4 text-center" role="status">
         <Progresso atual={2} />
         <span className="flex size-16 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600 ring-8 ring-emerald-50/60">
-          <MailCheck className="size-8" aria-hidden />
+          <Check className="size-8" aria-hidden />
         </span>
         <div>
-          <p className="text-2xl font-semibold tracking-tight text-slate-900">Verifique seu e-mail</p>
+          <p className="text-2xl font-semibold tracking-tight text-slate-900">Placa ativada</p>
           <p className="mt-2 text-[15px] leading-relaxed text-slate-600">
-            Enviamos um link de confirmação para <strong className="font-semibold break-all text-slate-900">{enviadoPara}</strong>.
-            Abra o e-mail e toque no botão para concluir a ativação da placa.
+            Sua placa já abre a avaliação de {escolha?.empresa.nome} no Google.
           </p>
         </div>
-        <ul className="w-full space-y-2 rounded-2xl bg-slate-50 p-4 text-left text-sm text-slate-600">
-          <li>O link vale por tempo limitado e só pode ser usado uma vez.</li>
-          <li>Não chegou? Confira o spam ou a aba Promoções.</li>
-        </ul>
-        <button type="button" onClick={() => { setErro(""); setEtapa("quase"); }} className="text-sm font-medium text-marca-texto hover:underline">
-          Corrigir o e-mail ou enviar de novo
-        </button>
       </div>
     );
   }
@@ -149,12 +137,11 @@ export function FormAtivar({ codigo, email: emailConta, emailSugerido }: { codig
             if (!publico) {
               return concluir(await ativarComGoogle(codigo, escolha.empresa.id, escolha.empresa.nome, escolha.empresa.linkAvaliacao));
             }
-            const r = await solicitarAtivacao(codigo, email, {
+            const r = await ativarPorEmail(codigo, email, {
               tipo: "google", placeId: escolha.empresa.id, nome: escolha.empresa.nome, link: escolha.empresa.linkAvaliacao,
             });
             if ("erro" in r) return setErro(r.erro);
-            setEnviadoPara(r.email);
-            setEtapa("enviado");
+            setEtapa("ativada");
           });
         }}
       >
@@ -165,7 +152,7 @@ export function FormAtivar({ codigo, email: emailConta, emailSugerido }: { codig
         <div className="text-center">
           <p className="text-2xl font-semibold tracking-tight text-slate-900">Quase lá!</p>
           <p className="mt-1 text-sm text-slate-500">
-            {publico ? "Informe o e-mail que vai gerenciar a placa. Enviaremos um link para confirmar." : "Confirme a empresa e a conta que vai gerenciar a placa."}
+            {publico ? "Informe o e-mail que vai gerenciar a placa." : "Confirme a empresa e a conta que vai gerenciar a placa."}
           </p>
         </div>
         <label className="flex flex-col gap-2 text-sm font-medium text-slate-700">
@@ -208,7 +195,7 @@ export function FormAtivar({ codigo, email: emailConta, emailSugerido }: { codig
 
         <Erro texto={erro} />
         <BotaoAzul type="submit" carregando={ocupado} disabled={!email.trim()}>
-          {publico ? <><Mail className="size-4" aria-hidden /> Enviar link de confirmação</> : <><Zap className="size-4" aria-hidden /> Ativar placa</>}
+          <Zap className="size-4" aria-hidden /> Ativar placa
         </BotaoAzul>
       </form>
     );

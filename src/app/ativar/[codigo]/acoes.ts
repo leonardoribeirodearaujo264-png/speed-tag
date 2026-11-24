@@ -11,7 +11,7 @@ import { hashSegredoNfc } from "@/lib/placas/segredo-nfc";
 import { clienteSupabaseServico, clienteSupabaseUsuario } from "@/lib/supabase/servidor";
 import type { OrigemEmpresa } from "@/lib/supabase/tipos";
 import { placaAtivavel as placaAtivavelPublica, type Erro, type ResultadoAtivacao } from "@/lib/placas/ativacao";
-import { solicitarAtivacaoPorEmail, type ResultadoPedido } from "@/lib/placas/ativacao-email";
+import { ativarPeloNfc, type ResultadoPedido } from "@/lib/placas/ativacao-email";
 
 async function placaAtivavel(codigo: string): Promise<{ usuarioId: string } | Erro> {
   if (!codigoValido(codigo)) return { erro: "Placa inválida." };
@@ -128,10 +128,10 @@ export async function ativarComLink(codigo: string, nome: string, link: string):
 export type { ResultadoPedido };
 
 /**
- * Ativação pelo NFC sem login: grava o pedido e manda o e-mail de confirmação.
+ * Ativação pelo NFC: vincula a empresa antes de solicitar o e-mail de acesso.
  * Empresa do Google (Place ID) ou link colado; o link final sempre é montado no servidor.
  */
-export async function solicitarAtivacao(
+export async function ativarPorEmail(
   codigo: string,
   email: string,
   empresa: { tipo: "google"; placeId: string; nome: string; link?: string } | { tipo: "manual"; nome: string; link: string },
@@ -140,7 +140,7 @@ export async function solicitarAtivacao(
   if (!nome.success) return { erro: nome.error.issues[0]?.message ?? "Nome da empresa inválido." };
   if (empresa.tipo === "google") {
     if (!esquemaPlaceId.safeParse(empresa.placeId).success) return { erro: "Selecione uma empresa da lista." };
-    return solicitarAtivacaoPorEmail({
+    return ativarPeloNfc({
       codigo, email, origem: "google_places", placeId: empresa.placeId, nome: nome.data,
       link: linkAvaliacaoSeguro(empresa.placeId, empresa.link),
     });
@@ -149,5 +149,5 @@ export async function solicitarAtivacao(
   if (!link.success || !linkGooglePermitido(link.data)) {
     return { erro: "Use o link de avaliação do Google (search.google.com, g.page ou maps.app.goo.gl)." };
   }
-  return solicitarAtivacaoPorEmail({ codigo, email, origem: "manual", placeId: null, nome: nome.data, link: link.data });
+  return ativarPeloNfc({ codigo, email, origem: "manual", placeId: null, nome: nome.data, link: link.data });
 }

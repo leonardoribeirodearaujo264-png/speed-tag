@@ -3,10 +3,21 @@ import { ativarComLink, pesquisarEmpresa, reivindicarTag } from "@/app/ativar/[c
 import { GET as abrirAtivacao } from "@/app/painel/ativar/route";
 import { registrarPlacaPropria } from "@/app/painel/acoes";
 import { gerarSegredoNfc, hashSegredoNfc } from "@/lib/placas/segredo-nfc";
+import { ativarPeloNfc } from "@/lib/placas/ativacao-email";
 
 const mocks = vi.hoisted(() => ({
   getUser: vi.fn(), consulta: vi.fn(), rpc: vi.fn(), servicoRpc: vi.fn(), servicoConsulta: vi.fn(), google: vi.fn(),
+  after: vi.fn<(tarefa: () => Promise<void>) => void>(), upsert: vi.fn(), otp: vi.fn(),
 }));
+vi.mock("next/server", async (importOriginal) => ({
+  ...await importOriginal<typeof import("next/server")>(), after: mocks.after,
+}));
+vi.mock("@/lib/auth-email/envio", () => ({
+  clienteAuthAnonimo: () => ({ auth: { signInWithOtp: mocks.otp } }),
+  registrarEnvio: async () => true,
+  urlRetornoAuth: async () => "https://speedtag.online/auth/confirmar",
+}));
+vi.mock("@/lib/google/links-maps", () => ({ verificarLinkAvaliacao: async () => ({ estado: "valido" }) }));
 vi.mock("next/cache", () => ({ refresh: vi.fn(), revalidatePath: vi.fn() }));
 vi.mock("@/lib/google/gerador", () => ({ pesquisarNoGoogle: mocks.google }));
 vi.mock("@/lib/supabase/servidor", () => ({
@@ -21,7 +32,7 @@ vi.mock("@/lib/supabase/servidor", () => ({
   clienteSupabaseServico: () => ({
     rpc: mocks.servicoRpc,
     from: () => {
-      const consulta = { select: () => consulta, eq: () => consulta, maybeSingle: mocks.servicoConsulta };
+      const consulta = { select: () => consulta, eq: () => consulta, maybeSingle: mocks.servicoConsulta, upsert: mocks.upsert };
       return consulta;
     },
   }),
@@ -45,6 +56,29 @@ it("mantém a empresa ao abrir a ativação de uma placa pela ficha", () => {
 });
 const usuario = "11111111-1111-4111-8111-111111111111";
 const url = "https://g.page/r/exemplo/review";
+
+describe("ativação NFC por e-mail", () => {
+  const pedido = { codigo, email: "cliente@example.com", origem: "manual" as const, placeId: null, nome: "Loja", link: url };
+
+  it("ativa antes de enviar o acesso e devolve sucesso mesmo se o envio falhar", async () => {
+    mocks.servicoConsulta.mockResolvedValue({ data: { status: "disponivel", dono_id: null } });
+    mocks.servicoRpc.mockResolvedValueOnce({ data: usuario }).mockResolvedValueOnce({ data: { ok: true } });
+    mocks.upsert.mockResolvedValue({});
+    mocks.otp.mockResolvedValue({ error: { status: 500, code: "erro_teste" } });
+    expect(await ativarPeloNfc(pedido)).toEqual({ ativada: true });
+    expect(mocks.servicoRpc).toHaveBeenLastCalledWith("ativar_placa_cliente", expect.objectContaining({ p_ator: usuario }));
+    expect(mocks.otp).not.toHaveBeenCalled();
+    await mocks.after.mock.calls[0]?.[0]();
+    expect(mocks.otp).toHaveBeenCalledOnce();
+  });
+
+  it("não permite ativação sem sessão de placa atribuída", async () => {
+    mocks.servicoConsulta.mockResolvedValue({ data: { status: "atribuida", dono_id: usuario } });
+    expect(await ativarPeloNfc(pedido)).toHaveProperty("erro");
+    expect(mocks.servicoRpc).not.toHaveBeenCalled();
+    expect(mocks.after).not.toHaveBeenCalled();
+  });
+});
 
 beforeEach(() => {
   vi.resetAllMocks();
