@@ -2,13 +2,14 @@
 -- Cobrem RLS (cliente não vê placa de outro, não se promove a admin, anon não lê nada)
 -- e a ativação atômica.
 begin;
-select plan(39);
+select plan(46);
 
 -- Usuários de teste (o gatilho cria os perfis).
 insert into auth.users (id, email, email_confirmed_at, raw_user_meta_data) values
   ('11111111-1111-4111-8111-111111111111', 'ana@teste.dev', now(), '{}'),
   ('22222222-2222-4222-8222-222222222222', 'bia@teste.dev', now(), '{}'),
-  ('33333333-3333-4333-8333-333333333333', 'adm@teste.dev', now(), '{}');
+  ('33333333-3333-4333-8333-333333333333', 'adm@teste.dev', now(), '{}'),
+  ('44444444-4444-4444-8444-444444444444', 'outra@teste.dev', now(), '{}');
 insert into public.speed_tag_administradores (usuario_id)
 values ('33333333-3333-4333-8333-333333333333')
 on conflict (usuario_id) do nothing;
@@ -71,7 +72,7 @@ select is(
     (select id from public.placas where codigo = 'TST001'),
     'manual', null, 'Loja da Ana Nova', 'https://g.page/r/loja-ana-nova/review'
   ) ->> 'ok'),
-  'true', 'dona troca o destino pela função'
+  'false', 'cliente não altera o destino de uma placa diretamente'
 );
 
 -- Cliente Bia
@@ -82,7 +83,7 @@ select is(
     '00000000-0000-4000-8000-0000000000ff',
     'manual', null, 'Invasão', 'https://g.page/r/invasao/review'
   ) ->> 'erro'),
-  'NAO_ENCONTRADA', 'Bia não troca destino de placa que não é dela'
+  'SEM_ACESSO', 'Bia não troca destino de placa que não é dela'
 );
 
 -- Anônimo
@@ -145,8 +146,8 @@ select throws_ok(
   '42501', null, 'cliente não cadastra empresa para outra conta'
 );
 select is(
-  public.speed_tag_vincular_empresa((select id from public.empresas where nome = 'Empresa própria de teste'), 'TST001'),
-  true, 'cliente vincula uma placa própria à sua empresa'
+  public.speed_tag_vincular_empresa((select id from public.empresas where nome = 'Empresa própria de teste'), 'TST002'),
+  true, 'cliente conclui a ativação de uma placa atribuída'
 );
 select is(
   public.speed_tag_vincular_empresa((select id from public.empresas where nome = 'Empresa própria de teste'), 'NV0002'),
@@ -157,23 +158,23 @@ select ok(
     'Empresa editada', 'ana@teste.dev', 'https://g.page/r/novo/review'),
   'cliente troca nome e link da empresa'
 );
-select is((select destino_url from public.placas where codigo = 'TST001'),
+select is((select destino_url from public.placas where codigo = 'TST002'),
   'https://g.page/r/novo/review', 'a placa vinculada usa o novo endereço');
 select ok(
   public.speed_tag_editar_empresa_completa((select id from public.empresas where nome = 'Empresa editada'),
     'Empresa editada', 'ana@teste.dev', null),
   'cliente pode limpar o link da empresa'
 );
-select is((select status::text from public.placas where codigo = 'TST001'), 'atribuida',
+select is((select status::text from public.placas where codigo = 'TST002'), 'atribuida',
   'limpar o link suspende o redirecionamento da placa vinculada');
-select ok(
-  public.speed_tag_remover_placa_da_empresa((select id from public.empresas where nome = 'Empresa editada'), 'TST001'),
-  'cliente remove uma placa própria da empresa'
+select is(
+  public.speed_tag_remover_placa_da_empresa((select id from public.empresas where nome = 'Empresa editada'), 'TST002'),
+  false, 'cliente não desvincula uma placa individual'
 );
 select ok(
-  (select empresa_id is null and dono_id = '11111111-1111-4111-8111-111111111111'::uuid
-    from public.placas where codigo = 'TST001'),
-  'remoção preserva a placa e seu titular'
+  (select empresa_id is not null and dono_id = '11111111-1111-4111-8111-111111111111'::uuid
+    from public.placas where codigo = 'TST002'),
+  'a tentativa rejeitada preserva o vínculo e o titular'
 );
 
 reset role;
@@ -201,6 +202,29 @@ select is(
   public.speed_tag_editar_cliente('33333333-3333-4333-8333-333333333333', 'Admin', null, false, null) ->> 'ok',
   'true', 'administrador pode editar outro administrador preservando seu papel'
 );
+
+select set_config('speed_tag_teste.empresa', (select id::text from public.empresas where nome = 'Empresa editada'), true);
+reset role;
+insert into public.leituras (placa_id, origem)
+  select id, 'nfc' from public.placas where codigo = 'NV0002';
+set local role authenticated;
+set local request.jwt.claims = '{"sub":"44444444-4444-4444-8444-444444444444","role":"authenticated"}';
+select is((select count(*) from public.speed_tag_acessos_empresas(array[current_setting('speed_tag_teste.empresa')::uuid])),
+  0::bigint, 'outra conta não consulta acessos da empresa de Ana');
+select is(public.speed_tag_gerenciar_empresa_cliente(current_setting('speed_tag_teste.empresa')::uuid, null),
+  false, 'outra sessão não exclui empresa de Ana');
+set local request.jwt.claims = '{"sub":"11111111-1111-4111-8111-111111111111","role":"authenticated"}';
+select is((select acessos from public.speed_tag_acessos_empresas(array[current_setting('speed_tag_teste.empresa')::uuid])),
+  1::bigint, 'titular vê uma leitura real registrada');
+select is(public.speed_tag_gerenciar_empresa_cliente(current_setting('speed_tag_teste.empresa')::uuid,
+  'https://g.page/r/editado/review'), true, 'titular edita o link da empresa');
+select is((select destino_url from public.placas where codigo = 'NV0002'),
+  'https://g.page/r/editado/review', 'link da placa ativa acompanha a empresa');
+select is(public.speed_tag_gerenciar_empresa_cliente(current_setting('speed_tag_teste.empresa')::uuid, null),
+  true, 'titular exclui a empresa');
+select ok((select empresa_id is null and destino_url is null and status = 'atribuida'
+  and dono_id = '11111111-1111-4111-8111-111111111111'::uuid from public.placas where codigo = 'NV0002'),
+  'exclusão devolve a placa ao estado de ativação e preserva o titular');
 
 select * from finish();
 rollback;

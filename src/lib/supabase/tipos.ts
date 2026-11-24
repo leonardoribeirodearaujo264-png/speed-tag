@@ -202,6 +202,8 @@ export type Database = {
       speed_tag_editar_empresa: { Args: { p_empresa: string; p_nome: string; p_email: string | null; p_link: string | null }; Returns: boolean };
       speed_tag_editar_empresa_completa: { Args: { p_empresa: string; p_nome: string; p_email: string | null; p_link: string | null }; Returns: boolean };
       speed_tag_remover_placa_da_empresa: { Args: { p_empresa: string; p_codigo: string }; Returns: boolean };
+      speed_tag_acessos_empresas: { Args: { p_empresas: string[] }; Returns: { empresa_id: string; acessos: number }[] };
+      speed_tag_gerenciar_empresa_cliente: { Args: { p_empresa: string; p_link: string | null }; Returns: boolean };
       speed_tag_vincular_empresa: { Args: { p_empresa: string; p_codigo: string }; Returns: boolean };
       speed_tag_editar_cliente_grupo: {
         Args: { p_usuario: string; p_nome: string | null; p_telefone: string | null; p_bloqueado: boolean; p_limite: number | null; p_grupo: Perfil["grupo_cliente"] };

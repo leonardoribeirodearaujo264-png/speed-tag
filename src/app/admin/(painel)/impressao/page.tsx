@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { Download } from "lucide-react";
 import { z } from "zod";
 import { ArtePlaca } from "@/components/placa/arte-placa";
 import { buttonVariants } from "@/components/ui/button";
@@ -63,6 +64,7 @@ export default async function Impressao({ searchParams }: PageProps<"/admin/impr
     visiveis.map(async (codigo) => ({ codigo, qr: await qrDaArte(urlQr(codigo)) })),
   );
   const ladoPx = Math.round(f.cm * PX_POR_CM);
+  const urlArte = (codigo: string) => `/api/admin/placas/${codigo}/arte?modelo=${modeloAtual}`;
 
   const link = (mudancas: Partial<typeof f>) => {
     const p = new URLSearchParams();
@@ -109,7 +111,7 @@ export default async function Impressao({ searchParams }: PageProps<"/admin/impr
             </Link>
           ))}
           </div>
-          <BotaoImprimir />
+          {visiveis.length > 0 && <BotaoImprimir key={link({})} urls={visiveis.map(urlArte)} lado={f.cm} nome={`speedtag-${f.lote ?? visiveis[0]}-${pagina}.pdf`} />}
         </div>
       </div>
 
@@ -118,11 +120,14 @@ export default async function Impressao({ searchParams }: PageProps<"/admin/impr
         &quot;Salvar como PDF&quot;. As linhas tracejadas são guia de corte.
       </p>
 
-      {/* Na tela, placas maiores que o celular rolam só dentro deste bloco; na impressão o tamanho é real. */}
-      <div className="flex flex-wrap gap-[4mm] overflow-x-auto overscroll-x-contain rounded-xl bg-white p-3 sm:p-4 print:overflow-visible print:rounded-none print:p-0">
+      <div className="flex min-w-0 flex-wrap gap-[4mm] rounded-xl bg-white p-3 sm:p-4 print:rounded-none print:p-0">
         {artes.map(({ codigo, qr }) => (
-          <div key={codigo} className="shrink-0 break-inside-avoid border border-dashed border-slate-300 p-[2mm]">
-            <ArtePlaca codigo={codigo} qrDataUri={qr} tamanho={ladoPx} modelo={modeloAtual} />
+          <div key={codigo} className="min-w-0 max-w-full shrink-0 break-inside-avoid border border-dashed border-slate-300 p-[2mm] print:max-w-none" style={{ width: `calc(${f.cm}cm + 4mm + 2px)` }}>
+            <ArtePlaca codigo={codigo} qrDataUri={qr} tamanho={ladoPx} modelo={modeloAtual} responsiva />
+            <a href={`${urlArte(codigo)}&baixar=1`} aria-label={`Baixar PNG da placa ${codigo}`}
+              className={buttonVariants({ variant: "outline", className: "mt-2 min-h-11 w-full print:hidden" })}>
+              <Download aria-hidden /> Baixar PNG
+            </a>
           </div>
         ))}
       </div>

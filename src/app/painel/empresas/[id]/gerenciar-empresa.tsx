@@ -9,9 +9,7 @@ import { FormEmpresa } from "@/components/placa/form-empresa";
 import { buttonVariants } from "@/components/ui/button";
 import { linkGooglePermitido } from "@/lib/google/dominios";
 import { exigirAdmin } from "@/lib/auth";
-import { nomeUsuario } from "@/lib/nome-usuario";
 import { clienteSupabaseUsuario } from "@/lib/supabase/servidor";
-import { PaginaCliente } from "../../menu-cliente";
 import { AdicionarPlacaComprada } from "../../registrar-placa";
 import { FormRemoverPlaca } from "../form-remover-placa";
 import { FormVincularPlaca } from "../form-vincular-placa";
@@ -106,10 +104,12 @@ export async function GerenciarEmpresa({ id, busca, admin = false }: {
                     <PilulaStatus status={placa.status} />
                   </div>
                   <div className="grid grid-cols-1 gap-2 min-[400px]:grid-cols-2 md:flex md:flex-wrap">
-                    <a href={admin ? `/api/admin/placas/${placa.codigo}/qr?formato=png&baixar=1` : `/painel/qr/${placa.codigo}`} className={buttonVariants({ variant: "outline", className: "min-h-11 px-4" })}>
-                      <Download aria-hidden /> Baixar QR Code
-                    </a>
-                    <DialogoEmpresa tipo="remover" botao="Remover da empresa" titulo={`Remover placa ${placa.codigo}`}
+                    {admin && (
+                      <a href={`/api/admin/placas/${placa.codigo}/qr?formato=png&baixar=1`} className={buttonVariants({ variant: "outline", className: "min-h-11 px-4" })}>
+                        <Download aria-hidden /> Baixar QR Code
+                      </a>
+                    )}
+                    <DialogoEmpresa tipo="remover" botao="Desvincular placa" titulo={`Desvincular placa ${placa.codigo}`}
                       descricao="A placa continua na sua conta e pode ser vinculada novamente.">
                       <FormRemoverPlaca empresa={id} codigo={placa.codigo} />
                     </DialogoEmpresa>
@@ -129,8 +129,8 @@ export async function GerenciarEmpresa({ id, busca, admin = false }: {
 
   if (admin) return <div className="space-y-4">{conteudo}</div>;
   return (
-    <PaginaCliente nome={nomeUsuario(perfil?.data?.nome, user.email)} secao="empresas" className="space-y-4">
+    <div className="space-y-4">
       {conteudo}
-    </PaginaCliente>
+    </div>
   );
 }

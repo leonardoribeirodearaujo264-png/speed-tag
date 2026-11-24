@@ -1,112 +1,107 @@
-import Link from "next/link";
+﻿import Link from "next/link";
 import { redirect } from "next/navigation";
-import { Building2, CheckCircle2, ExternalLink, Link2, Nfc, Pencil, UserRound } from "lucide-react";
-import { CartaoListagem } from "@/components/admin/cartao-listagem";
-import { EstadoVazio, Painel } from "@/components/admin/ui";
+import { ExternalLink, Eye } from "lucide-react";
+import { z } from "zod";
 import { FormEmpresa } from "@/components/placa/form-empresa";
 import { DialogoEmpresa } from "@/components/placa/dialogo-empresa";
-import { buttonVariants } from "@/components/ui/button";
 import { linkGooglePermitido } from "@/lib/google/dominios";
 import { codigoValido } from "@/lib/codigos";
-import { nomeUsuario } from "@/lib/nome-usuario";
 import { clienteSupabaseUsuario } from "@/lib/supabase/servidor";
 import { PaginaCliente } from "../menu-cliente";
-import { FormDefinirSenha } from "./form-definir-senha";
-import { FormPerfil } from "./form-perfil";
-import { FormPlacaComprada } from "../form-placa-comprada";
 import { PlacaPendente } from "./placa-pendente";
+import { EditarLinkEmpresa, OpcoesEmpresa } from "./acoes-cartao";
 
 export const instant = false;
 export const metadata = { title: "Minhas empresas" };
+
+const POR_PAGINA = 8;
+const paginaValida = z.coerce.number().int().min(1).max(100000).catch(1);
+const botaoPagina = "rounded-lg border border-slate-600 px-3 py-2 text-sm font-medium hover:bg-white/10 focus-visible:ring-2 focus-visible:ring-cyan-300";
+
+function MarcaGoogle() {
+  return (
+    <svg viewBox="0 0 48 48" className="size-6 shrink-0" aria-hidden>
+      <path fill="#4285F4" d="M43.6 20.5H42V20H24v8h11.3A12 12 0 1 1 31 14.3l5.7-5.7A20 20 0 1 0 44 24c0-1.2-.1-2.4-.4-3.5Z" />
+      <path fill="#EA4335" d="M6.3 14.7 13 20A12 12 0 0 1 31 14.3l5.7-5.7a20 20 0 0 0-30.4 6.1Z" />
+      <path fill="#FBBC05" d="M6.3 14.7a20 20 0 0 0 0 18.6l6.7-5.2a12 12 0 0 1 0-8.1Z" />
+      <path fill="#34A853" d="M24 44a20 20 0 0 0 13.4-5.2l-6.2-5.2a12 12 0 0 1-18.2-5.5l-6.7 5.2A20 20 0 0 0 24 44Z" />
+    </svg>
+  );
+}
 
 export default async function EmpresasCliente({ searchParams }: PageProps<"/painel/empresas">) {
   const supabase = await clienteSupabaseUsuario();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/entrar?proximo=/painel/empresas");
 
-  const { ativada, erro, placa, empresa } = await searchParams;
-  const placaPendente = typeof placa === "string" && codigoValido(placa) ? placa : null;
-  const codigo = typeof ativada === "string" && codigoValido(ativada) ? ativada : null;
-  const [{ data: perfil, error: erroPerfil }, { data: empresas, error }, confirmacao, cadastro] = await Promise.all([
-    supabase.from("perfis").select("nome, bloqueado_em").eq("id", user.id).maybeSingle(),
-    supabase.from("empresas").select("*").eq("dono_id", user.id).order("nome").order("id"),
-    codigo ? supabase.from("placas").select("codigo").eq("codigo", codigo).eq("dono_id", user.id).eq("status", "ativa").maybeSingle() : null,
-    supabase.from("empresas").select("email_contato").limit(0),
+  const filtros = await searchParams;
+  const pagina = paginaValida.parse(filtros.pagina);
+  const placa = typeof filtros.placa === "string" && codigoValido(filtros.placa) ? filtros.placa : null;
+  const ativada = typeof filtros.ativada === "string" && codigoValido(filtros.ativada) ? filtros.ativada : null;
+  const consulta = supabase.from("empresas").select("id, nome, link_avaliacao", { count: "exact" })
+    .eq("dono_id", user.id).order("nome").order("id").range((pagina - 1) * POR_PAGINA, pagina * POR_PAGINA - 1);
+  const [acesso, empresas, confirmacao, empresasAtivacao] = await Promise.all([
+    supabase.rpc("speed_tag_acesso_cliente"),
+    consulta,
+    ativada ? supabase.from("placas").select("codigo").eq("codigo", ativada).eq("dono_id", user.id).eq("status", "ativa").maybeSingle() : null,
+    placa ? supabase.from("empresas").select("id, nome, link_avaliacao").eq("dono_id", user.id).order("nome") : null,
   ]);
-  const cadastroDisponivel = !cadastro.error;
-  if (erroPerfil) throw new Error("Falha ao consultar o perfil");
-  if (perfil?.bloqueado_em) redirect("/painel");
+  if (acesso.error || !acesso.data) return <PaginaCliente><p role="alert">Seu acesso está indisponível.</p></PaginaCliente>;
+
+  const paginas = Math.max(1, Math.ceil((empresas.count ?? 0) / POR_PAGINA));
+  if (!empresas.error && pagina > paginas && !placa) redirect(`/painel/empresas?pagina=${paginas}`);
+  const ids = empresas.data?.map(({ id }) => id) ?? [];
+  const acessos = ids.length ? await supabase.rpc("speed_tag_acessos_empresas", { p_empresas: ids }) : null;
+  const contagens = new Map(acessos?.data?.map(({ empresa_id, acessos }) => [empresa_id, acessos]));
 
   return (
-    <PaginaCliente nome={nomeUsuario(perfil?.nome, user.email)} secao="empresas">
-      <section className="mb-5 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
-        <div className="mb-4 flex items-center gap-3">
-          <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-marca-fundo text-marca-ciano"><Building2 className="size-5" aria-hidden /></span>
-          <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Minhas empresas</h1>
-        </div>
-        <div className="grid gap-2 sm:flex sm:flex-wrap">
-          {cadastroDisponivel && <DialogoEmpresa tipo="criar" botao="Criar nova empresa" descricao="Informe os dados do estabelecimento para cadastrá-lo na sua conta.">
-            <FormEmpresa email={user.email ?? ""} />
-          </DialogoEmpresa>}
-          <DialogoEmpresa tipo="placa" botao="Ativar placa comprada" abertoInicial={erro === "codigo"}
-            descricao="Informe o código que está impresso na placa que você comprou.">
-            <FormPlacaComprada empresas />
-            {erro === "codigo" && <p role="alert" className="mt-2 text-sm text-red-700">Confira o código impresso na placa.</p>}
-          </DialogoEmpresa>
-        </div>
-      </section>
-      {placaPendente && (
-        <PlacaPendente codigo={placaPendente} idUsuario={user.id} email={user.email ?? ""} empresas={cadastroDisponivel ? empresas ?? [] : []}
-          empresaPreferida={typeof empresa === "string" ? empresa : undefined} />
+    <PaginaCliente>
+      <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-2xl font-semibold tracking-tight">Minhas empresas</h1>
+        <DialogoEmpresa tipo="criar" botao="Nova empresa">
+          <FormEmpresa email={user.email ?? ""} />
+        </DialogoEmpresa>
+      </div>
+      {placa && (
+        <PlacaPendente codigo={placa} idUsuario={user.id} email={user.email ?? ""} empresas={empresasAtivacao?.data ?? []}
+          empresaPreferida={typeof filtros.empresa === "string" ? filtros.empresa : undefined} />
       )}
-      {!cadastroDisponivel && <p className="mb-4 rounded-xl bg-amber-50 p-3 text-sm text-amber-900">O cadastro manual de empresas está temporariamente indisponível. Você pode selecionar a empresa pelo Google ao ativar uma placa.</p>}
-      {confirmacao?.data && (
-        <p role="status" className="mb-4 flex gap-2 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">
-          <CheckCircle2 className="size-5 shrink-0" aria-hidden />
-          Placa {confirmacao.data.codigo} ativada. Agora ela abre a avaliação da empresa.
-        </p>
-      )}
-      {error ? (
-        <Painel><p role="alert" className="p-4">Não foi possível carregar as suas empresas.</p></Painel>
-      ) : !empresas.length ? (
-        <Painel><EstadoVazio icone={Building2} titulo="Nenhuma empresa cadastrada" descricao={cadastroDisponivel ? "Crie uma empresa ou selecione um estabelecimento ao ativar a sua placa." : "Selecione um estabelecimento ao ativar a sua placa."} /></Painel>
+      {confirmacao?.data && <p role="status" className="mb-4 rounded-xl bg-emerald-950 px-4 py-3 text-sm text-emerald-200">Placa ativada. Ela já abre a avaliação no Google.</p>}
+      {empresas.error ? <p role="alert">Não foi possível carregar suas empresas.</p> : !empresas.data.length ? (
+        <p className="rounded-xl border border-slate-700 bg-slate-900 p-4 text-slate-300">Nenhuma empresa cadastrada.</p>
       ) : (
-        <ul className="grid gap-3 md:grid-cols-2">
-          {empresas.map((empresa) => {
-            const temAvaliacao = linkGooglePermitido(empresa.link_avaliacao);
-            return (
-              <li key={empresa.id} className="min-w-0">
-                <CartaoListagem
-                  icone={<Building2 className="size-5" aria-hidden />}
-                  titulo={empresa.nome}
-                  subtitulo={empresa.email_contato ?? "E-mail de contato pendente"}
-                  opcoes={null}
-                  acoes={<>
-                    <Link href={`/painel?empresa=${empresa.id}#minhas-placas`} className={buttonVariants({ variant: "outline", className: "min-h-11 grow" })}><Nfc aria-hidden /> Ver placas</Link>
-                    {temAvaliacao && <a href={empresa.link_avaliacao} target="_blank" rel="noreferrer" className={buttonVariants({ className: "min-h-11 grow" })}><ExternalLink aria-hidden /> Abrir avaliação</a>}
-                  </>}
-                >
-                  {cadastroDisponivel && !temAvaliacao && <p className="flex items-center gap-2 text-sm text-amber-800"><Link2 className="size-4 shrink-0" aria-hidden /> Adicione o link do Google para vincular placas.</p>}
-                  <div className="grid gap-2 sm:flex sm:flex-wrap">
-                    <Link href={`/painel/empresas/${empresa.id}`} className={buttonVariants({ variant: "outline", className: "min-h-11 px-4" })}>
-                      <Pencil aria-hidden /> Editar empresa
-                    </Link>
-                  </div>
-                </CartaoListagem>
-              </li>
-            );
-          })}
+        <ul className="grid gap-3">
+          {empresas.data.map(({ id, nome, link_avaliacao: link }) => (
+            <li key={id} className="min-w-0 rounded-2xl border border-slate-700 bg-slate-900 p-4 sm:p-5">
+              <div className="flex items-start justify-between gap-3">
+                <h2 className="flex min-w-0 items-start gap-2.5 text-lg font-semibold"><MarcaGoogle /><span className="min-w-0 wrap-anywhere">{nome}</span></h2>
+                <OpcoesEmpresa id={id} nome={nome} />
+              </div>
+              <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+                <span className="inline-flex items-center gap-2 text-sm text-slate-300">
+                  <Eye className="size-4 shrink-0" aria-hidden />
+                  {acessos?.error ? "Acessos indisponíveis" : `${(contagens.get(id) ?? 0).toLocaleString("pt-BR")} acessos`}
+                </span>
+                <div className="flex flex-wrap items-center gap-2">
+                  <EditarLinkEmpresa id={id} link={link} />
+                  {linkGooglePermitido(link) && (
+                    <a href={link} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-marca px-3 text-sm font-semibold hover:bg-marca-forte focus-visible:ring-2 focus-visible:ring-cyan-300">
+                      <ExternalLink className="size-4" aria-hidden /> Abrir
+                    </a>
+                  )}
+                </div>
+              </div>
+            </li>
+          ))}
         </ul>
       )}
-      <section id="perfil" aria-label="Meu perfil" className="mt-5 scroll-mt-28 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
-        <h2 className="mb-4 flex items-center gap-2 font-semibold"><UserRound className="size-5 text-marca-texto" aria-hidden /> Meu perfil</h2>
-        <FormPerfil nome={perfil?.nome ?? ""} email={user.email ?? ""} />
-        <div className="mt-4 border-t pt-4">
-          <DialogoEmpresa tipo="senha" botao="Alterar senha de acesso">
-            <FormDefinirSenha />
-          </DialogoEmpresa>
-        </div>
-      </section>
+      {paginas > 1 && (
+        <nav aria-label="Páginas de empresas" className="mt-5 flex flex-wrap items-center justify-center gap-3 text-sm">
+          {pagina > 1 && <Link href={`?pagina=${pagina - 1}`} className={botaoPagina}>Anterior</Link>}
+          <span>{pagina} de {paginas}</span>
+          {pagina < paginas && <Link href={`?pagina=${pagina + 1}`} className={botaoPagina}>Próxima</Link>}
+        </nav>
+      )}
     </PaginaCliente>
   );
 }

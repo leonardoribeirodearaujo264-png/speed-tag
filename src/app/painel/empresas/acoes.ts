@@ -4,6 +4,28 @@ import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { codigoValido, normalizarCodigo } from "@/lib/codigos";
 import { clienteSupabaseUsuario } from "@/lib/supabase/servidor";
+import { linkGooglePermitido } from "@/lib/google/dominios";
+import { redirect } from "next/navigation";
+
+export async function gerenciarEmpresaCliente(empresa: string, acao: "editar" | "excluir", _anterior: string, dados: FormData) {
+  if (!z.uuid().safeParse(empresa).success) return "Empresa inválida.";
+  const link = dados.get("link");
+  if (acao === "editar" && (typeof link !== "string" || !linkGooglePermitido(link.trim()))) {
+    return "Informe um link de avaliação válido do Google.";
+  }
+  if (acao === "excluir" && dados.get("confirmar") !== "on") return "Confirme a exclusão.";
+  if (acao !== "editar" && acao !== "excluir") return "Ação inválida.";
+
+  const supabase = await clienteSupabaseUsuario();
+  const { data, error } = await supabase.rpc("speed_tag_gerenciar_empresa_cliente", {
+    p_empresa: empresa, p_link: acao === "editar" && typeof link === "string" ? link.trim() : null,
+  });
+  if (error || !data) return "Não foi possível alterar esta empresa. Confira o acesso ou tente novamente.";
+  revalidatePath("/admin/empresas");
+  revalidatePath("/admin/placas");
+  revalidatePath("/painel/empresas");
+  redirect("/painel/empresas");
+}
 
 export async function atualizarPerfilCliente(_anterior: string, dados: FormData) {
   const nome = z.string().trim().min(1).max(120).safeParse(dados.get("nome"));

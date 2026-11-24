@@ -1,9 +1,5 @@
-import { GerenciarEmpresa } from "./gerenciar-empresa";
+﻿import { redirect } from "next/navigation";
 
-export const instant = false;
-export const metadata = { title: "Gerenciar empresa" };
-
-export default async function EmpresaCliente({ params, searchParams }: PageProps<"/painel/empresas/[id]">) {
-  const [{ id }, busca] = await Promise.all([params, searchParams]);
-  return <GerenciarEmpresa id={id} busca={busca} />;
+export default function EmpresaCliente() {
+  redirect("/painel/empresas");
 }
