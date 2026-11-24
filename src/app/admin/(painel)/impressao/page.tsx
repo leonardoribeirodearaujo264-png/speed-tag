@@ -5,7 +5,7 @@ import { z } from "zod";
 import { ArtePlaca } from "@/components/placa/arte-placa";
 import { buttonVariants } from "@/components/ui/button";
 import { exigirAdmin } from "@/lib/auth";
-import { buscarPlacaPorCodigo, listarCodigosDoLote, modeloDoLote } from "@/lib/placas/consultas";
+import { buscarPlacaPorCodigo, listarCodigosDoLote, modeloDoLote, modelosDasPlacas } from "@/lib/placas/consultas";
 import { MODELOS_ARTE, NOMES_MODELOS, modeloArte } from "@/lib/placas/modelos-arte";
 import { qrDaArte } from "@/lib/placas/qr";
 import { urlQr } from "@/lib/placas/urls";
@@ -54,17 +54,21 @@ export default async function Impressao({ searchParams }: PageProps<"/admin/impr
     notFound();
   }
 
-  // ?modelo= troca a arte só nesta folha; sem ele, vale a arte salva no lote.
-  const modeloAtual = f.modelo ? modeloArte(f.modelo) : await modeloDoLote(supabase, loteDaArte);
+  // Cada placa sai com a sua cor (a da placa ou a do lote). ?modelo= filtra só uma cor.
+  const cores = await modelosDasPlacas(supabase, codigos, await modeloDoLote(supabase, loteDaArte));
+  const contagemCores = Object.fromEntries(NOMES_MODELOS.map((m) => [m, codigos.filter((c) => cores.get(c) === m).length])) as Record<keyof typeof MODELOS_ARTE, number>;
+  const filtroCor = f.modelo && (NOMES_MODELOS as readonly string[]).includes(f.modelo) ? modeloArte(f.modelo) : null;
+  if (filtroCor) codigos = codigos.filter((c) => cores.get(c) === filtroCor);
+  const misto = NOMES_MODELOS.filter((m) => contagemCores[m] > 0).length > 1;
 
   const paginas = Math.max(1, Math.ceil(codigos.length / POR_PAGINA));
   const pagina = Math.min(f.pagina, paginas);
   const visiveis = codigos.slice((pagina - 1) * POR_PAGINA, pagina * POR_PAGINA);
   const artes = await Promise.all(
-    visiveis.map(async (codigo) => ({ codigo, qr: await qrDaArte(urlQr(codigo)) })),
+    visiveis.map(async (codigo) => ({ codigo, modelo: cores.get(codigo) ?? modeloArte(null), qr: await qrDaArte(urlQr(codigo)) })),
   );
   const ladoPx = Math.round(f.cm * PX_POR_CM);
-  const urlArte = (codigo: string) => `/api/admin/placas/${codigo}/arte?modelo=${modeloAtual}`;
+  const urlArte = (codigo: string) => `/api/admin/placas/${codigo}/arte`;
 
   const link = (mudancas: Partial<typeof f>) => {
     const p = new URLSearchParams();
@@ -87,15 +91,21 @@ export default async function Impressao({ searchParams }: PageProps<"/admin/impr
         </div>
         <div className="flex w-full flex-wrap items-center gap-x-4 gap-y-2 sm:w-auto">
           <div className="flex flex-wrap items-center gap-1.5">
-          <span className="text-sm text-muted-foreground">Arte:</span>
-          {NOMES_MODELOS.map((modelo) => (
+          <span className="text-sm text-muted-foreground">Cor:</span>
+          {misto && (
+            <Link href={link({ modelo: undefined, pagina: 1 })} aria-current={!filtroCor ? "true" : undefined}
+              className={buttonVariants({ variant: !filtroCor ? "secondary" : "ghost", size: "sm" })}>
+              Todas
+            </Link>
+          )}
+          {NOMES_MODELOS.filter((modelo) => contagemCores[modelo] > 0).map((modelo) => (
             <Link
               key={modelo}
-              href={link({ modelo })}
-              aria-current={modelo === modeloAtual ? "true" : undefined}
-              className={buttonVariants({ variant: modelo === modeloAtual ? "secondary" : "ghost", size: "sm" })}
+              href={link({ modelo, pagina: 1 })}
+              aria-current={modelo === filtroCor || (!misto && !filtroCor) ? "true" : undefined}
+              className={buttonVariants({ variant: modelo === filtroCor || (!misto && !filtroCor) ? "secondary" : "ghost", size: "sm" })}
             >
-              {MODELOS_ARTE[modelo].rotulo}
+              {MODELOS_ARTE[modelo].rotulo} ({contagemCores[modelo]})
             </Link>
           ))}
           </div>
@@ -112,7 +122,7 @@ export default async function Impressao({ searchParams }: PageProps<"/admin/impr
             </Link>
           ))}
           </div>
-          {visiveis.length > 0 && <BotaoImprimir key={link({})} urls={visiveis.map(urlArte)} lado={f.cm} nome={`speedtag-${f.lote ?? visiveis[0]}-${pagina}.pdf`} />}
+          {visiveis.length > 0 && <BotaoImprimir key={link({})} urls={visiveis.map(urlArte)} lado={f.cm} nome={`speedtag-${f.lote ?? visiveis[0]}${filtroCor ? `-${filtroCor}` : ""}-${pagina}.pdf`} />}
         </div>
       </div>
 
@@ -122,9 +132,9 @@ export default async function Impressao({ searchParams }: PageProps<"/admin/impr
       </p>
 
       <div className="flex min-w-0 flex-wrap gap-[4mm] rounded-xl bg-white p-3 sm:p-4 print:block print:rounded-none print:p-0">
-        {artes.map(({ codigo, qr }) => (
+        {artes.map(({ codigo, modelo, qr }) => (
           <div key={codigo} className="min-w-0 max-w-full shrink-0 break-inside-avoid border border-dashed border-slate-300 p-[2mm] print:mr-[4mm] print:mb-[4mm] print:inline-block print:max-w-none print:align-top" style={{ width: `calc(${f.cm}cm + 4mm + 2px)` }}>
-            <ArtePlaca codigo={codigo} qrDataUri={qr} tamanho={ladoPx} modelo={modeloAtual} responsiva />
+            <ArtePlaca codigo={codigo} qrDataUri={qr} tamanho={ladoPx} modelo={modelo} responsiva />
             <a href={`${urlArte(codigo)}&baixar=1`} aria-label={`Baixar PNG da placa ${codigo}`}
               className={buttonVariants({ variant: "outline", className: "mt-2 min-h-11 w-full print:hidden" })}>
               <Download aria-hidden /> Baixar PNG

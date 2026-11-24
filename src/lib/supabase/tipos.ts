@@ -94,6 +94,8 @@ export type Placa = {
   atribuida_em: string | null;
   criado_em: string;
   atualizado_em: string;
+  /** Cor da arte desta placa; null = vale a cor do lote (migração 0026). */
+  modelo_arte?: "azul" | "preta" | null;
 };
 
 export type Leitura = {
@@ -289,6 +291,7 @@ export type Database = {
       usuario_por_email: { Args: { p_email: string }; Returns: string | null };
       speed_tag_registrar_envio: { Args: { p_email: string; p_tipo: string; p_limite: number; p_janela_minutos: number }; Returns: boolean };
       speed_tag_concluir_ativacoes: { Args: Record<string, never>; Returns: Json };
+      speed_tag_definir_cor_placas: { Args: { p_codigos: string[]; p_modelo: string | null }; Returns: number };
       ativar_placa_cliente: {
         Args: { p_codigo: string; p_ator: string; p_origem: OrigemEmpresa; p_place_id: string | null; p_nome: string; p_link: string };
         Returns: Json;

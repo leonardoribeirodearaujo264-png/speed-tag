@@ -1,5 +1,5 @@
 import { verificarAdminApi } from "@/lib/auth";
-import { buscarPlacaPorCodigo, modeloDoLote, respostaErroBusca } from "@/lib/placas/consultas";
+import { buscarPlacaPorCodigo, modeloDaPlaca, respostaErroBusca } from "@/lib/placas/consultas";
 import { modeloArte } from "@/lib/placas/modelos-arte";
 import { ladoDaArte, respostaArtePlaca } from "@/lib/placas/resposta-arte";
 
@@ -14,8 +14,8 @@ export async function GET(request: Request, ctx: RouteContext<"/api/admin/placas
   const placa = busca.dado;
   const parametros = new URL(request.url).searchParams;
   const baixar = parametros.get("baixar") === "1";
-  // Sem ?modelo=, vale a arte salva no lote da placa.
+  // Sem ?modelo=, vale a cor da placa (ou a do lote dela).
   const pedido = parametros.get("modelo");
-  const modelo = pedido ? modeloArte(pedido) : await modeloDoLote(sessao.supabase, placa.lote_id);
+  const modelo = pedido ? modeloArte(pedido) : await modeloDaPlaca(sessao.supabase, placa);
   return respostaArtePlaca(placa.codigo, modelo, baixar, ladoDaArte(parametros.get("lado")));
 }

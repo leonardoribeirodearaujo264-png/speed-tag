@@ -62,3 +62,36 @@ export async function modeloDoLote(supabase: Supabase, loteId: string | null): P
   const { data } = await supabase.from("lotes").select("*").eq("id", loteId).maybeSingle();
   return modeloArte(data?.modelo_arte);
 }
+
+/** Cor da arte de uma placa: a dela, se tiver; senão a do lote; senão a padrão. */
+export async function modeloDaPlaca(supabase: Supabase, placa: Pick<Placa, "lote_id" | "modelo_arte">): Promise<ModeloArte> {
+  return placa.modelo_arte ? modeloArte(placa.modelo_arte) : modeloDoLote(supabase, placa.lote_id);
+}
+
+/** Cor de cada código (a da placa ou a do lote), para a folha de impressão. */
+export async function modelosDasPlacas(supabase: Supabase, codigos: string[], padraoDoLote: ModeloArte): Promise<Map<string, ModeloArte>> {
+  const mapa = new Map<string, ModeloArte>(codigos.map((c) => [c, padraoDoLote]));
+  const BLOCO = 200; // códigos por consulta (a lista vai na URL)
+  for (let inicio = 0; inicio < codigos.length; inicio += BLOCO) {
+    const { data, error } = await supabase.from("placas").select("*").in("codigo", codigos.slice(inicio, inicio + BLOCO));
+    if (error) {
+      console.error("[placas] cores das placas", error.code);
+      continue;
+    }
+    for (const p of data) if (p.modelo_arte) mapa.set(p.codigo, modeloArte(p.modelo_arte));
+  }
+  return mapa;
+}
+
+/** Quantas placas do lote saem com cada cor (as sem cor própria contam na cor do lote). */
+export async function contarCoresDoLote(supabase: Supabase, loteId: string, padrao: ModeloArte): Promise<Record<ModeloArte, number>> {
+  const contar = async (cor?: ModeloArte) => {
+    let consulta = supabase.from("placas").select("id", { count: "exact", head: true }).eq("lote_id", loteId);
+    if (cor) consulta = consulta.eq("modelo_arte", cor);
+    const { count, error } = await consulta;
+    return error ? 0 : count ?? 0;
+  };
+  const [total, azul, preta] = await Promise.all([contar(), contar("azul"), contar("preta")]);
+  const semCor = Math.max(0, total - azul - preta);
+  return { azul: azul + (padrao === "azul" ? semCor : 0), preta: preta + (padrao === "preta" ? semCor : 0) };
+}

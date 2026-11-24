@@ -5,7 +5,8 @@ import { MODELOS_ARTE, NOMES_MODELOS, type ModeloArte } from "@/lib/placas/model
 /** Escolha visual do modelo de arte (miniatura de cada um), como grupo de rádio. */
 export function SeletorModeloArte({ nome = "modelo_arte", valor, aoMudar, desabilitado }: {
   nome?: string;
-  valor: ModeloArte;
+  /** null = nenhuma marcada (ex.: lote com as duas cores). */
+  valor: ModeloArte | null;
   aoMudar: (modelo: ModeloArte) => void;
   desabilitado?: boolean;
 }) {

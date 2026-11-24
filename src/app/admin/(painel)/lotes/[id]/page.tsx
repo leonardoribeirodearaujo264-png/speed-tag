@@ -12,6 +12,7 @@ import { FormModeloLote } from "./form-modelo";
 import { ExcluirLote } from "./excluir-lote";
 import { FILTRO_PLACAS_EM_USO } from "@/lib/placas/exclusao-lote";
 import { modeloArte } from "@/lib/placas/modelos-arte";
+import { contarCoresDoLote } from "@/lib/placas/consultas";
 
 // Painel com login: navegação espera o servidor (sessão lida a cada requisição).
 export const instant = false;
@@ -49,6 +50,7 @@ export default async function DetalheLote({ params, searchParams }: PageProps<"/
     contar(supabase, id, "nfc"),
     contar(supabase, id, "em_uso"),
   ]);
+  const cores = await contarCoresDoLote(supabase, id, modeloArte(lote.modelo_arte));
   const { criado } = await searchParams;
   const exportar = `/api/admin/lotes/${id}/exportar`;
 
@@ -95,9 +97,9 @@ export default async function DetalheLote({ params, searchParams }: PageProps<"/
         </Painel>
 
         <Painel>
-          <TituloPainel titulo="Arte das placas" descricao="Modelo usado na prévia, no PNG e na folha de impressão deste lote." />
+          <TituloPainel titulo="Arte das placas" descricao="Cor de cada placa na prévia, no PNG, na folha de impressão e no PDF." />
           <div className="px-5 pb-6 sm:px-6">
-            <FormModeloLote loteId={id} atual={modeloArte(lote.modelo_arte)} />
+            <FormModeloLote loteId={id} atual={modeloArte(lote.modelo_arte)} cores={cores} />
           </div>
         </Painel>
 
@@ -110,7 +112,7 @@ export default async function DetalheLote({ params, searchParams }: PageProps<"/
             <a href={`${exportar}?formato=zip`} className={buttonVariants({ variant: "outline" })}>
               <FolderArchive aria-hidden /> QR Codes (ZIP)
             </a>
-            <Link href={`/admin/impressao?lote=${id}&modelo=${modeloArte(lote.modelo_arte)}`} className={buttonVariants({ variant: "outline" })}>
+            <Link href={`/admin/impressao?lote=${id}`} className={buttonVariants({ variant: "outline" })}>
               <Printer aria-hidden /> Folha de impressão / PDF
             </Link>
           </div>

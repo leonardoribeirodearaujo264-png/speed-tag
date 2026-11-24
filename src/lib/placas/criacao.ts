@@ -1,5 +1,5 @@
 import { gerarCodigos } from "@/lib/codigos";
-import { MODELO_PADRAO, type ModeloArte } from "@/lib/placas/modelos-arte";
+import { MODELO_PADRAO, NOMES_MODELOS, type ModeloArte } from "@/lib/placas/modelos-arte";
 import type { clienteSupabaseUsuario } from "@/lib/supabase/servidor";
 
 type Supabase = Awaited<ReturnType<typeof clienteSupabaseUsuario>>;
@@ -40,19 +40,37 @@ export async function criarPlacaUnica(
 
 export async function criarLote(
   supabase: Supabase,
-  entrada: { nome: string; quantidade: number; revendedor: string | null; modeloArte?: ModeloArte },
+  entrada: { nome: string; quantidades: Record<ModeloArte, number>; revendedor: string | null },
 ): Promise<ResultadoCriacao<{ loteId: string }>> {
+  const cores = NOMES_MODELOS.filter((m) => entrada.quantidades[m] > 0);
+  const total = cores.reduce((soma, m) => soma + entrada.quantidades[m], 0);
+  // Cor do lote: a que tem mais placas. Placas de outra cor guardam a própria (lote misto).
+  const principal = cores.reduce<ModeloArte>((a, m) => (entrada.quantidades[m] > entrada.quantidades[a] ? m : a), cores[0] ?? MODELO_PADRAO);
+
   for (let tentativa = 1; tentativa <= TENTATIVAS; tentativa++) {
+    const codigos = gerarCodigos(total);
     const { data, error } = await supabase.rpc("criar_lote", {
       p_nome: entrada.nome,
-      p_codigos: gerarCodigos(entrada.quantidade),
+      p_codigos: codigos,
       p_revendedor: entrada.revendedor,
     });
     if (!error && data) {
-      if (entrada.modeloArte && entrada.modeloArte !== MODELO_PADRAO) {
-        // Lote já criado: se gravar o modelo falhar, o lote fica no padrão e o admin troca na página do lote.
-        const { error: erroModelo } = await supabase.from("lotes").update({ modelo_arte: entrada.modeloArte }).eq("id", data);
+      // Lote já criado: se gravar a cor falhar, o admin ajusta na página do lote.
+      if (principal !== MODELO_PADRAO) {
+        const { error: erroModelo } = await supabase.from("lotes").update({ modelo_arte: principal }).eq("id", data);
         if (erroModelo) console.error("[criacao] modelo da arte do lote", erroModelo.code);
+      }
+      if (cores.length > 1) {
+        let inicio = 0;
+        for (const cor of cores) {
+          const grupo = codigos.slice(inicio, inicio + entrada.quantidades[cor]);
+          inicio += grupo.length;
+          const { error: erroCor } = await supabase.rpc("speed_tag_definir_cor_placas", { p_codigos: grupo, p_modelo: cor });
+          if (erroCor) {
+            console.error("[criacao] cor das placas", cor, erroCor.code);
+            return { ok: false, mensagem: "O lote foi criado, mas as cores das placas não foram salvas. Rode a migração 0026 e ajuste na página do lote." };
+          }
+        }
       }
       return { ok: true, dado: { loteId: data } };
     }

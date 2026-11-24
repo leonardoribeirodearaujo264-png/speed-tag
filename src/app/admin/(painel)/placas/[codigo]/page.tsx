@@ -131,7 +131,7 @@ export default async function DetalhePlaca({ params, searchParams }: PageProps<"
     supabase.from("lotes").select("id, nome").order("criado_em", { ascending: false }).then((r) => r.data ?? []),
   ]);
   // ?modelo= mostra outra arte só nesta tela; sem ele, vale a arte salva no lote.
-  const modelo = modeloArte(typeof modeloBruto === "string" ? modeloBruto : lote?.modelo_arte);
+  const modelo = modeloArte(typeof modeloBruto === "string" ? modeloBruto : placa.modelo_arte ?? lote?.modelo_arte);
   const { serie, totalNfc, totalQr, ultimaLeitura } = recentes;
     const base = `/api/admin/placas/${placa.codigo}`;
 

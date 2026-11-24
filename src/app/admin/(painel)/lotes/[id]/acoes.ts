@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { exigirAdmin } from "@/lib/auth";
+import { listarCodigosDoLote } from "@/lib/placas/consultas";
 import { MODELOS_ARTE, NOMES_MODELOS, type ModeloArte } from "@/lib/placas/modelos-arte";
 import { interpretarExclusaoLote, type ResultadoExclusaoLote } from "@/lib/placas/exclusao-lote";
 
@@ -82,8 +83,17 @@ export async function trocarModeloLoteAcao(loteId: string, modelo: string): Prom
     };
   }
   if (!data) return { ok: false, mensagem: "Lote não encontrado." };
+  // Trocar a arte do lote deixa todas as placas iguais: tira a cor própria das placas (lote misto).
+  const codigos = await listarCodigosDoLote(supabase, loteId);
+  if (codigos?.length) {
+    const { error: erroCor } = await supabase.rpc("speed_tag_definir_cor_placas", { p_codigos: codigos, p_modelo: null });
+    if (erroCor && erroCor.code !== "PGRST202") {
+      console.error("[lotes] limpar cor das placas", erroCor.code);
+      return { ok: false, mensagem: "A arte do lote mudou, mas algumas placas mantiveram a cor própria. Tente de novo." };
+    }
+  }
   revalidatePath(`/admin/lotes/${loteId}`);
-  return { ok: true, mensagem: `Arte do lote trocada para ${MODELOS_ARTE[modelo as ModeloArte].rotulo}.` };
+  return { ok: true, mensagem: `Todas as placas do lote agora usam a arte ${MODELOS_ARTE[modelo as ModeloArte].rotulo}.` };
 }
 
 /**
