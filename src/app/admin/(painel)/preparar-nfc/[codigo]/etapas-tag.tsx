@@ -46,7 +46,7 @@ export function EtapasTag({ codigo, url, gravada, testada, entregue, encerrada }
   if (encerrada) return null;
   return (
     <div className="space-y-3">
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap gap-2 [&>button]:h-auto [&>button]:min-w-0 [&>button]:max-w-full [&>button]:py-2 [&>button]:whitespace-normal">
         {!gravada && suportado && <Button disabled={pendente} onClick={() => executar("gravada", true)}>Gravar pelo navegador</Button>}
         {!gravada && <Button variant="outline" disabled={pendente} onClick={() => executar("gravada")}>Já gravei pelo NFC Tools</Button>}
         {gravada && !testada && suportado && <Button disabled={pendente} onClick={() => executar("testada", true)}>Ler e testar tag</Button>}

@@ -62,7 +62,7 @@ function Dado({ rotulo, children }: { rotulo: string; children: React.ReactNode 
   return (
     <div className="flex items-start justify-between gap-4 py-2.5 text-sm">
       <dt className="text-slate-500">{rotulo}</dt>
-      <dd className="min-w-0 text-right font-medium text-slate-900">{children}</dd>
+      <dd className="min-w-0 wrap-anywhere text-right font-medium text-slate-900">{children}</dd>
     </div>
   );
 }
@@ -153,21 +153,21 @@ export default async function DetalhePlaca({ params, searchParams }: PageProps<"
         acoes={<PilulaStatus status={placa.status} />}
       />
 
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-        <div className="flex flex-col gap-6">
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+        <div className="flex min-w-0 flex-col gap-6">
           <Painel>
             <TituloPainel
               titulo="Arte da placa"
               descricao="PNG em 2000 × 2000 px; PDF pela folha de impressão."
               acao={
-                <div className="flex gap-1 rounded-xl bg-slate-100 p-1" role="group" aria-label="Modelo da arte">
+                <div className="grid w-full grid-cols-2 gap-1 rounded-xl bg-slate-100 p-1 sm:w-auto" role="group" aria-label="Modelo da arte">
                   {NOMES_MODELOS.map((m) => (
                     <Link
                       key={m}
                       href={`/admin/placas/${placa.codigo}?modelo=${m}`}
                       scroll={false}
                       aria-current={m === modelo ? "true" : undefined}
-                      className={`inline-flex min-h-10 items-center rounded-lg px-3 py-1 text-sm font-medium md:min-h-0 ${m === modelo ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-800"}`}
+                      className={`inline-flex min-h-10 items-center justify-center rounded-lg px-3 py-1 text-sm font-medium md:min-h-0 ${m === modelo ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-800"}`}
                     >
                       {MODELOS_ARTE[m].rotulo}
                     </Link>
@@ -176,11 +176,10 @@ export default async function DetalhePlaca({ params, searchParams }: PageProps<"
               }
             />
             <div className="flex flex-col items-center gap-5 px-5 pb-6 sm:px-6">
-              {/* A arte tem 340 px fixos; em telas estreitas o zoom reduz o conjunto sem cortar a placa. */}
-              <div className="w-fit overflow-hidden rounded-2xl shadow-xl ring-1 ring-black/5 max-[380px]:[zoom:0.72] min-[381px]:max-[420px]:[zoom:0.86]">
-                <ArtePlaca codigo={placa.codigo} qrDataUri={qrDataUri} tamanho={340} modelo={modelo} />
+              <div className="w-full max-w-[340px] rounded-2xl shadow-xl ring-1 ring-black/5">
+                <ArtePlaca codigo={placa.codigo} qrDataUri={qrDataUri} tamanho={340} modelo={modelo} responsiva />
               </div>
-              <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:flex-wrap sm:justify-center">
+              <div className="grid w-full grid-cols-2 gap-2 [&>a]:h-auto [&>a]:min-w-0 [&>a]:px-2 [&>a]:py-2 [&>a]:text-center [&>a]:whitespace-normal sm:max-w-md">
                 <a href={`${base}/arte?baixar=1&modelo=${modelo}`} className={buttonVariants({ variant: "outline" })}>
                   <Download aria-hidden /> Arte PNG
                 </a>
@@ -206,9 +205,9 @@ export default async function DetalhePlaca({ params, searchParams }: PageProps<"
                   { rotulo: "NFC", valor: totalNfc },
                   { rotulo: "QR Code", valor: totalQr },
                 ].map((c) => (
-                  <div key={c.rotulo} className="rounded-xl bg-slate-50 px-3 py-2.5">
+                  <div key={c.rotulo} className="min-w-0 rounded-xl bg-slate-50 px-2 py-2.5 sm:px-3">
                     <p className="text-xs text-slate-500">{c.rotulo}</p>
-                    <p className="text-xl font-semibold tracking-tight text-slate-900 tabular-nums">{c.valor.toLocaleString("pt-BR")}</p>
+                    <p className="wrap-anywhere text-lg font-semibold tracking-tight text-slate-900 tabular-nums sm:text-xl">{c.valor.toLocaleString("pt-BR")}</p>
                   </div>
                 ))}
               </div>
@@ -247,7 +246,7 @@ export default async function DetalhePlaca({ params, searchParams }: PageProps<"
           </Painel>
         </div>
 
-        <div className="flex flex-col gap-6">
+        <div className="flex min-w-0 flex-col gap-6">
           <Painel>
             <TituloPainel titulo="Estoque e situação" />
             <div className="px-5 pb-6 sm:px-6">

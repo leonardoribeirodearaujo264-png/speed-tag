@@ -36,7 +36,7 @@ export function DialogoEmpresa({
       </Dialog.Trigger>
       <Dialog.Portal>
         <Dialog.Backdrop className="fixed inset-0 z-40 bg-slate-950/55 transition-opacity duration-200 data-ending-style:opacity-0 data-starting-style:opacity-0" />
-        <Dialog.Popup className="fixed inset-x-0 bottom-0 z-50 flex max-h-[92dvh] flex-col rounded-t-3xl bg-white shadow-2xl outline-none sm:inset-x-auto sm:top-1/2 sm:bottom-auto sm:left-1/2 sm:max-h-[min(85dvh,48rem)] sm:w-[calc(100%-3rem)] sm:max-w-lg sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-2xl">
+        <Dialog.Popup className="fixed inset-x-0 bottom-0 z-50 flex max-h-[92dvh] flex-col rounded-t-3xl bg-white shadow-2xl outline-none sm:inset-x-auto sm:top-1/2 sm:bottom-auto sm:left-1/2 sm:max-h-[min(85dvh,48rem)] sm:w-[calc(100%_-_3rem)] sm:max-w-lg sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-2xl">
           <span aria-hidden className="mx-auto mt-2.5 h-1 w-10 shrink-0 rounded-full bg-slate-200 sm:hidden" />
           <div className="flex shrink-0 items-start gap-3 border-b border-slate-100 px-5 pt-3 pb-4 sm:px-6 sm:pt-6">
             <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-marca-claro text-marca-texto">
@@ -50,7 +50,7 @@ export function DialogoEmpresa({
               <X className="size-5" aria-hidden />
             </Dialog.Close>
           </div>
-          <div className="pb-seguro min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 pt-4 sm:px-6 sm:pb-6">
+          <div className="pb-seguro min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain px-5 pt-4 sm:px-6 sm:pb-6">
             {children}
           </div>
         </Dialog.Popup>

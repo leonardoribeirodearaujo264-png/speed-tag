@@ -117,7 +117,7 @@ export function GravarNfc({ placaId, url, gravadoEm, travado }: Props) {
           <AlertTitle>Travar é irreversível</AlertTitle>
           <AlertDescription className="flex flex-col gap-3">
             Depois de travado, ninguém consegue regravar este chip, nem você. O destino continua mudando pelo sistema.
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               <Button variant="destructive" onClick={travar}>Travar para sempre</Button>
               <Button variant="outline" onClick={() => setFase({ tipo: "gravado" })}>Cancelar</Button>
             </div>

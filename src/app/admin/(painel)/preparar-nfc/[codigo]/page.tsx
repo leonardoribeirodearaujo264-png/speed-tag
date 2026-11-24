@@ -80,8 +80,8 @@ async function Detalhe({ params }: { params: PageProps<"/admin/preparar-nfc/[cod
         }
       />
 
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)]">
-        <div className="flex flex-col gap-6">
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)]">
+        <div className="flex min-w-0 flex-col gap-6">
           <Painel>
             <TituloPainel titulo="Passo a passo" descricao={atual >= PASSOS.length ? "Concluído" : `Etapa ${atual + 1} de ${PASSOS.length}`} />
             <ol className="flex flex-col gap-1 px-5 pb-5 sm:px-6">
@@ -122,7 +122,7 @@ async function Detalhe({ params }: { params: PageProps<"/admin/preparar-nfc/[cod
             <TituloPainel titulo="Histórico da tag" />
             <ol className="divide-y divide-slate-100 px-5 pb-4 text-sm sm:px-6">
               {marcosNfc(tag).map(({ rotulo, data }) => (
-                <li key={rotulo} className="flex justify-between gap-3 py-2.5">
+                <li key={rotulo} className="flex flex-wrap justify-between gap-x-3 gap-y-1 py-2.5">
                   <span className="font-medium text-slate-700">{rotulo}</span>
                   {data ? (
                     <time dateTime={data} className="text-slate-500">{formatoData.format(new Date(data))}</time>
@@ -135,12 +135,12 @@ async function Detalhe({ params }: { params: PageProps<"/admin/preparar-nfc/[cod
           </Painel>
         </div>
 
-        <div className="flex flex-col gap-6">
+        <div className="flex min-w-0 flex-col gap-6">
           <Painel>
             <TituloPainel titulo="Link de ativação do cliente" descricao="Envie para o cliente ativar a placa pelo celular." />
             <div className="flex flex-col gap-4 px-5 pb-6 sm:px-6">
               <div className="flex items-center gap-2">
-                <code className="min-w-0 flex-1 truncate rounded-lg bg-slate-100 px-3 py-2.5 text-sm text-slate-800">{ativacao}</code>
+                <code className="min-w-0 flex-1 wrap-anywhere rounded-lg bg-slate-100 px-3 py-2.5 text-sm text-slate-800">{ativacao}</code>
                 <BotaoCopiar texto={ativacao} rotulo="Link de ativação" />
               </div>
               <a
@@ -168,13 +168,13 @@ async function Detalhe({ params }: { params: PageProps<"/admin/preparar-nfc/[cod
                 </p>
               )}
               <div className="flex items-center gap-2">
-                <code className="min-w-0 flex-1 truncate rounded-lg bg-slate-100 px-3 py-2.5 text-sm text-slate-800">{url}</code>
+                <code className="min-w-0 flex-1 wrap-anywhere rounded-lg bg-slate-100 px-3 py-2.5 text-sm text-slate-800">{url}</code>
                 <BotaoCopiar texto={url} rotulo="Endereço NFC" />
               </div>
-              <div className="flex items-center gap-4">
+              <div className="flex flex-wrap items-center gap-4">
                 {/* API autenticada que gera o QR sob demanda. */}
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={qr} alt={`QR Code da tag ${tag.codigo}`} width={136} height={136} className="rounded-lg ring-1 ring-slate-200" />
+                <img src={qr} alt={`QR Code da tag ${tag.codigo}`} width={136} height={136} className="h-auto w-full max-w-[136px] rounded-lg ring-1 ring-slate-200" />
                 <a className="text-sm font-medium text-marca-texto hover:underline" href={`${qr}?formato=png&baixar=1`}>
                   Baixar QR Code
                 </a>

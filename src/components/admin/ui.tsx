@@ -31,17 +31,17 @@ export function CabecalhoPagina({
       <div className="min-w-0">
         {sobretitulo && <div className="mb-1 text-sm font-medium text-marca-texto">{sobretitulo}</div>}
         <h1 className="text-2xl font-semibold tracking-tight break-words text-slate-900 sm:text-[28px]">{titulo}</h1>
-        {descricao && <p className="mt-1.5 text-[15px] text-slate-500">{descricao}</p>}
+        {descricao && <p className="mt-1.5 wrap-anywhere text-[15px] text-slate-500">{descricao}</p>}
       </div>
       {/* No celular as ações ocupam a linha inteira e dividem o espaço; não cortam nem estouram. */}
-      {acoes && <div className="flex w-full flex-wrap items-center gap-2 max-sm:*:grow sm:w-auto">{acoes}</div>}
+      {acoes && <div className="flex w-full min-w-0 max-w-full flex-wrap items-center gap-2 *:max-w-full max-sm:*:grow max-sm:*:whitespace-normal sm:w-auto">{acoes}</div>}
     </div>
   );
 }
 
 export function Painel({ children, className }: { children: ReactNode; className?: string }) {
   return (
-    <section className={cn("rounded-2xl border border-slate-200/80 bg-white shadow-[0_1px_2px_rgba(15,23,42,0.04)]", className)}>
+    <section className={cn("min-w-0 rounded-2xl border border-slate-200/80 bg-white shadow-[0_1px_2px_rgba(15,23,42,0.04)]", className)}>
       {children}
     </section>
   );
@@ -146,7 +146,7 @@ const formatoDia = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "sh
 export function GraficoLeituras({ serie }: { serie: Ponto[] }) {
   const largura = 720;
   const altura = 220;
-  const margem = { topo: 12, base: 26, esquerda: 32, direita: 4 };
+  const margem = { topo: 12, base: 34, esquerda: 52, direita: 4 };
   const area = { l: largura - margem.esquerda - margem.direita, a: altura - margem.topo - margem.base };
   const maximo = Math.max(4, ...serie.map((p) => p.nfc + p.qr));
   const passo = Math.ceil(maximo / 4);
@@ -155,13 +155,13 @@ export function GraficoLeituras({ serie }: { serie: Ponto[] }) {
   const barra = Math.max(3, Math.min(18, coluna * 0.62));
   const y = (v: number) => margem.topo + area.a - (v / topo) * area.a;
   const marcas = [0, 1, 2, 3, 4].map((i) => i * passo);
-  const rotulos = serie.filter((_, i) => i % Math.ceil(serie.length / 6) === 0 || i === serie.length - 1);
+  const intervalo = Math.max(1, Math.ceil(serie.length / 6));
+  const ultimo = serie.length - 1;
+  const rotulos = serie.filter((_, i) => i === ultimo || (i % intervalo === 0 && i <= ultimo - intervalo));
 
   return (
     <figure className="min-w-0">
-      {/* No celular o gráfico mantém largura mínima legível e rola só dentro do próprio bloco. */}
-      <div className="-mx-1 overflow-x-auto overscroll-x-contain px-1">
-      <svg viewBox={`0 0 ${largura} ${altura}`} className="h-auto w-full min-w-[520px] sm:min-w-0" role="img" aria-label="Leituras por dia, NFC e QR Code">
+      <svg viewBox={`0 0 ${largura} ${altura}`} className="block h-auto w-full" role="img" aria-label="Leituras por dia, NFC e QR Code">
         <defs>
           <linearGradient id="grad-nfc" x1="0" x2="0" y1="0" y2="1">
             <stop offset="0%" stopColor="#2dd4ff" />
@@ -171,7 +171,7 @@ export function GraficoLeituras({ serie }: { serie: Ponto[] }) {
         {marcas.map((m) => (
           <g key={m}>
             <line x1={margem.esquerda} x2={largura - margem.direita} y1={y(m)} y2={y(m)} stroke="#e2e8f0" strokeDasharray={m === 0 ? undefined : "3 4"} />
-            <text x={margem.esquerda - 8} y={y(m)} dy="0.32em" textAnchor="end" className="fill-slate-400 text-[11px] max-sm:text-[15px]">
+            <text x={margem.esquerda - 8} y={y(m)} dy="0.32em" textAnchor="end" className="fill-slate-400 text-[11px] max-sm:text-[25px]">
               {m}
             </text>
           </g>
@@ -192,13 +192,12 @@ export function GraficoLeituras({ serie }: { serie: Ponto[] }) {
         {rotulos.map((p) => {
           const i = serie.indexOf(p);
           return (
-            <text key={p.dia} x={margem.esquerda + coluna * i + coluna / 2} y={altura - 6} textAnchor="middle" className="fill-slate-400 text-[11px] max-sm:text-[15px]">
+            <text key={p.dia} x={Math.min(largura - 54, margem.esquerda + coluna * (i + 0.5))} y={altura - 6} textAnchor="middle" className="fill-slate-400 text-[11px] max-sm:text-[24px]">
               {formatoDia.format(new Date(p.dia))}
             </text>
           );
         })}
       </svg>
-      </div>
       <figcaption className="mt-3 flex items-center gap-5 text-xs text-slate-500">
         <span className="flex items-center gap-1.5">
           <span className="size-2.5 rounded-sm bg-gradient-to-b from-marca-ciano to-marca" /> NFC
