@@ -33,9 +33,10 @@ export async function entrarAdmin(_anterior: EstadoEntrarAdmin, dados: FormData)
   }
 
   await supabase.rpc("garantir_perfil");
-  const { data: admin } = await supabase.rpc("eh_admin");
+  const { data: admin, error: erroPermissao } = await supabase.rpc("eh_admin");
 
-  if (admin !== true) redirect("/painel");
+  if (erroPermissao) return { erro: "Não foi possível verificar o acesso administrativo. Tente novamente.", email };
+  if (admin !== true) return { erro: "Esta conta não tem acesso administrativo.", email };
 
   const destino = caminhoInternoSeguro(entrada.data.proximo, "/admin/placas");
   redirect(destino.startsWith("/admin") ? destino : "/admin/placas");

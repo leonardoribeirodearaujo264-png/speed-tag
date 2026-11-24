@@ -38,6 +38,13 @@ export default async function EmpresasCliente({ searchParams }: PageProps<"/pain
   const pagina = paginaValida.parse(filtros.pagina);
   const placa = typeof filtros.placa === "string" && codigoValido(filtros.placa) ? filtros.placa : null;
   const ativada = typeof filtros.ativada === "string" && codigoValido(filtros.ativada) ? filtros.ativada : null;
+
+  // A tela do cliente também recebe o retorno do NFC, inclusive em sessões administrativas.
+  if (!placa && !ativada) {
+    const { data: admin } = await supabase.rpc("eh_admin");
+    if (admin === true) redirect("/admin/empresas");
+  }
+
   const consulta = supabase.from("empresas").select("id, nome, link_avaliacao", { count: "exact" })
     .eq("dono_id", user.id).order("nome").order("id").range((pagina - 1) * POR_PAGINA, pagina * POR_PAGINA - 1);
   const [acesso, empresas, confirmacao, empresasAtivacao] = await Promise.all([

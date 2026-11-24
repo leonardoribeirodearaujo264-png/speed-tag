@@ -24,7 +24,7 @@ async function obterSessaoAdmin(): Promise<SessaoAdmin | "sem_login" | "sem_perm
 export async function exigirAdmin(proximo = "/admin"): Promise<SessaoAdmin> {
   const sessao = await obterSessaoAdmin();
   if (sessao === "sem_login") redirect(`/admin/entrar?proximo=${encodeURIComponent(proximo)}`);
-  if (sessao === "sem_permissao") redirect("/painel");
+  if (sessao === "sem_permissao") redirect(`/admin/entrar?proximo=${encodeURIComponent(proximo)}&erro=permissao`);
   return sessao;
 }
 

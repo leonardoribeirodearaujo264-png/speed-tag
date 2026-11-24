@@ -8,8 +8,15 @@ import { FormEntrarAdmin } from "./form-entrar-admin";
 export const metadata = { title: "Entrar" };
 
 async function Formulario({ searchParams }: { searchParams: PageProps<"/admin/entrar">["searchParams"] }) {
-  const { proximo } = await searchParams;
-  return <FormEntrarAdmin proximo={caminhoInternoSeguro(typeof proximo === "string" ? proximo : null, "/admin/placas")} />;
+  const { proximo, erro } = await searchParams;
+  return (
+    <>
+      {erro === "permissao" && <p role="alert" className="mb-4 rounded-lg bg-amber-50 p-3 text-sm text-amber-900">
+        Entre com uma conta de administrador para acessar esta página.
+      </p>}
+      <FormEntrarAdmin proximo={caminhoInternoSeguro(typeof proximo === "string" ? proximo : null, "/admin/placas")} />
+    </>
+  );
 }
 
 export default function EntrarAdmin({ searchParams }: PageProps<"/admin/entrar">) {
