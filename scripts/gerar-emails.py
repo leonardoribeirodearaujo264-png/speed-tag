@@ -11,7 +11,8 @@ Depois cole cada arquivo em Supabase > Authentication > Emails (assunto em ASSUN
 """
 from pathlib import Path
 
-LOGO = "https://www.speedtag.online/marca/speedtag.png"
+# Logo azul com fundo preto embutido na imagem: nenhum cliente de e-mail troca a cor.
+LOGO = "https://www.speedtag.online/marca/speedtag-email.png"
 SITE = "https://www.speedtag.online"
 
 
@@ -52,7 +53,7 @@ def layout(titulo_pagina: str, corpo: str) -> str:
         '<body style="margin:0;padding:0;background:#eef2f7;font-family:Segoe UI,Helvetica,Arial,sans-serif;color:#0f172a">',
         '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#eef2f7;padding:32px 12px"><tr><td align="center">',
         '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;background:#ffffff;border-radius:20px;overflow:hidden">',
-        f'<tr><td style="background:#0b1020;padding:28px 32px" align="center"><a href="{SITE}"><img src="{LOGO}" width="200" alt="Speed Tag" style="display:block;width:200px;max-width:70%;height:auto;border:0"></a></td></tr>',
+        f'<tr><td bgcolor="#000000" style="background-color:#000000;padding:28px 32px" align="center"><a href="{SITE}"><img src="{LOGO}" width="240" height="100" alt="Speed Tag" style="display:block;width:240px;max-width:80%;height:auto;border:0;outline:none;text-decoration:none"></a></td></tr>',
         corpo,
         '<tr><td style="padding:28px 32px 32px;font-size:13px;line-height:1.6;color:#64748b">'
         'Se você não fez este pedido, ignore esta mensagem. Sua conta continua segura.</td></tr>',
