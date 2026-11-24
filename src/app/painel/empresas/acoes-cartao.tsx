@@ -31,7 +31,8 @@ function FormAcao({ id, excluir, link }: { id: string; excluir: boolean; link: s
 
 export function EditarLinkEmpresa({ id, link }: { id: string; link: string }) {
   return (
-    <DialogoEmpresa tipo="editar" botao="Editar" titulo="Editar link de avaliação" classeBotao={botao}>
+    <DialogoEmpresa tipo="editar" botao="Editar" titulo="Editar link de avaliação"
+      classeBotao={`${botao} bg-slate-800 hover:bg-slate-700 hover:text-white aria-expanded:bg-slate-700 aria-expanded:text-white`}>
       <FormAcao id={id} link={link} excluir={false} />
     </DialogoEmpresa>
   );
