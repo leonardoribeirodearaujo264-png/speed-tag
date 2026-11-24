@@ -1,12 +1,13 @@
 ﻿"use client";
 
-import { useActionState } from "react";
-import { Ellipsis } from "lucide-react";
+import { useActionState, useState } from "react";
+import { Menu } from "@base-ui/react/menu";
+import { Ellipsis, Trash2 } from "lucide-react";
 import { DialogoEmpresa } from "@/components/placa/dialogo-empresa";
 import { Button } from "@/components/ui/button";
 import { gerenciarEmpresaCliente } from "./acoes";
 
-const botao = "inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-slate-600 px-3 text-sm font-medium text-white hover:bg-white/10 focus-visible:ring-2 focus-visible:ring-cyan-300";
+const botao = "inline-flex min-h-11 items-center justify-center gap-1.5 rounded-lg border border-slate-600 px-2.5 text-sm font-medium text-white hover:bg-white/10 focus-visible:ring-2 focus-visible:ring-cyan-300";
 
 function FormAcao({ id, excluir, link }: { id: string; excluir: boolean; link: string }) {
   const [erro, acao, pendente] = useActionState(gerenciarEmpresaCliente.bind(null, id, excluir ? "excluir" : "editar"), "");
@@ -37,18 +38,28 @@ export function EditarLinkEmpresa({ id, link }: { id: string; link: string }) {
 }
 
 export function OpcoesEmpresa({ id, nome }: { id: string; nome: string }) {
+  const [confirmando, setConfirmando] = useState(false);
   return (
-    <details className="relative">
-      <summary aria-label={`Mais opcoes de ${nome}`} className={`${botao} w-11 cursor-pointer list-none px-0 [&::-webkit-details-marker]:hidden`}>
-        <Ellipsis className="size-5" aria-hidden />
-      </summary>
-      <div className="absolute right-0 z-10 mt-2 w-44 rounded-xl border border-slate-700 bg-slate-900 p-1 shadow-xl">
-        <DialogoEmpresa tipo="remover" botao="Excluir empresa" titulo={`Excluir ${nome}?`}
-          descricao="As placas vinculadas continuam na conta e ficam disponíveis para uma nova ativação."
-          classeBotao="flex min-h-11 w-full items-center gap-2 rounded-lg px-3 text-sm text-red-300 hover:bg-white/10">
-          <FormAcao id={id} link="" excluir />
-        </DialogoEmpresa>
-      </div>
-    </details>
+    <>
+      <Menu.Root modal={false}>
+        <Menu.Trigger aria-label={`Mais opções de ${nome}`} className={`${botao} w-11 shrink-0 bg-white/5 px-0`}>
+          <Ellipsis className="size-5" aria-hidden />
+        </Menu.Trigger>
+        <Menu.Portal>
+          <Menu.Positioner align="end" sideOffset={6} collisionPadding={12} className="z-30">
+            <Menu.Popup className="w-44 max-w-[var(--available-width)] rounded-xl border border-slate-700 bg-slate-900 p-1 shadow-xl">
+              <Menu.Item onClick={() => setConfirmando(true)} className="flex min-h-11 cursor-pointer items-center gap-2 rounded-lg px-3 text-sm text-red-300 outline-none data-highlighted:bg-white/10">
+                <Trash2 className="size-4" aria-hidden /> Excluir empresa
+              </Menu.Item>
+            </Menu.Popup>
+          </Menu.Positioner>
+        </Menu.Portal>
+      </Menu.Root>
+      <DialogoEmpresa tipo="remover" botao="Excluir empresa" titulo={`Excluir ${nome}?`}
+        descricao="As placas vinculadas continuam na conta e ficam disponíveis para uma nova ativação."
+        aberto={confirmando} aoMudar={setConfirmando} semGatilho>
+        <FormAcao id={id} link="" excluir />
+      </DialogoEmpresa>
+    </>
   );
 }

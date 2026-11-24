@@ -1,6 +1,6 @@
 ﻿import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ExternalLink, Eye } from "lucide-react";
+import { ChevronLeft, ChevronRight, ExternalLink, Eye } from "lucide-react";
 import { z } from "zod";
 import { FormEmpresa } from "@/components/placa/form-empresa";
 import { DialogoEmpresa } from "@/components/placa/dialogo-empresa";
@@ -16,7 +16,7 @@ export const metadata = { title: "Minhas empresas" };
 
 const POR_PAGINA = 8;
 const paginaValida = z.coerce.number().int().min(1).max(100000).catch(1);
-const botaoPagina = "rounded-lg border border-slate-600 px-3 py-2 text-sm font-medium hover:bg-white/10 focus-visible:ring-2 focus-visible:ring-cyan-300";
+const botaoPagina = "grid size-11 place-items-center rounded-xl border border-slate-600 text-slate-200 hover:bg-white/10 focus-visible:ring-2 focus-visible:ring-cyan-300";
 
 function MarcaGoogle() {
   return (
@@ -72,15 +72,19 @@ export default async function EmpresasCliente({ searchParams }: PageProps<"/pain
       ) : (
         <ul className="grid gap-3">
           {empresas.data.map(({ id, nome, link_avaliacao: link }) => (
-            <li key={id} className="min-w-0 rounded-2xl border border-slate-700 bg-slate-900 p-4 sm:p-5">
+            <li key={id} className="min-w-0 rounded-2xl border border-slate-700 bg-slate-900 p-3.5 sm:p-5">
               <div className="flex items-start justify-between gap-3">
                 <h2 className="flex min-w-0 items-start gap-2.5 text-lg font-semibold"><MarcaGoogle /><span className="min-w-0 wrap-anywhere">{nome}</span></h2>
                 <OpcoesEmpresa id={id} nome={nome} />
               </div>
-              <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
-                <span className="inline-flex items-center gap-2 text-sm text-slate-300">
+              <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-slate-800 pt-3">
+                <span className="inline-flex min-w-0 items-center gap-1.5 text-sm tabular-nums text-slate-300">
                   <Eye className="size-4 shrink-0" aria-hidden />
-                  {acessos?.error ? "Acessos indisponíveis" : `${(contagens.get(id) ?? 0).toLocaleString("pt-BR")} acessos`}
+                  {acessos?.error ? (
+                    <span><span aria-hidden>—</span><span className="sr-only">Acessos indisponíveis</span></span>
+                  ) : (
+                    <span>{(contagens.get(id) ?? 0).toLocaleString("pt-BR")}<span className="sr-only"> acessos</span></span>
+                  )}
                 </span>
                 <div className="flex flex-wrap items-center gap-2">
                   <EditarLinkEmpresa id={id} link={link} />
@@ -97,9 +101,9 @@ export default async function EmpresasCliente({ searchParams }: PageProps<"/pain
       )}
       {paginas > 1 && (
         <nav aria-label="Páginas de empresas" className="mt-5 flex flex-wrap items-center justify-center gap-3 text-sm">
-          {pagina > 1 && <Link href={`?pagina=${pagina - 1}`} className={botaoPagina}>Anterior</Link>}
-          <span>{pagina} de {paginas}</span>
-          {pagina < paginas && <Link href={`?pagina=${pagina + 1}`} className={botaoPagina}>Próxima</Link>}
+          {pagina > 1 ? <Link href={`?pagina=${pagina - 1}`} aria-label="Página anterior" className={botaoPagina}><ChevronLeft aria-hidden /></Link> : <span aria-hidden className="size-11" />}
+          <span className="min-w-16 text-center font-medium tabular-nums" aria-current="page">{pagina} de {paginas}</span>
+          {pagina < paginas ? <Link href={`?pagina=${pagina + 1}`} aria-label="Próxima página" className={botaoPagina}><ChevronRight aria-hidden /></Link> : <span aria-hidden className="size-11" />}
         </nav>
       )}
     </PaginaCliente>

@@ -13,7 +13,7 @@ const icones = { criar: Plus, editar: Pencil, placa: Nfc, senha: KeyRound, remov
  * Aceita uso controlado (`aberto` + `aoMudar`) quando quem chama precisa fechar após uma ação.
  */
 export function DialogoEmpresa({
-  tipo, botao, titulo, descricao, children, abertoInicial = false, aberto, aoMudar, classeBotao,
+  tipo, botao, titulo, descricao, children, abertoInicial = false, aberto, aoMudar, classeBotao, semGatilho = false,
 }: {
   tipo: keyof typeof icones;
   botao: string;
@@ -24,16 +24,17 @@ export function DialogoEmpresa({
   aberto?: boolean;
   aoMudar?: (aberto: boolean) => void;
   classeBotao?: string;
+  semGatilho?: boolean;
 }) {
   const Icone = icones[tipo];
   return (
     <Dialog.Root defaultOpen={abertoInicial} open={aberto} onOpenChange={aoMudar ? (valor) => aoMudar(valor) : undefined}>
-      <Dialog.Trigger className={buttonVariants({
+      {!semGatilho && <Dialog.Trigger className={buttonVariants({
         variant: tipo === "criar" ? "default" : "outline",
         className: classeBotao ?? "min-h-11 w-full justify-center px-4 sm:w-auto",
       })}>
         <Icone aria-hidden /> {botao}
-      </Dialog.Trigger>
+      </Dialog.Trigger>}
       <Dialog.Portal>
         <Dialog.Backdrop className="fixed inset-0 z-40 bg-slate-950/55 transition-opacity duration-200 data-ending-style:opacity-0 data-starting-style:opacity-0" />
         <Dialog.Popup className="fixed inset-x-0 bottom-0 z-50 flex max-h-[92dvh] flex-col rounded-t-3xl bg-white shadow-2xl outline-none sm:inset-x-auto sm:top-1/2 sm:bottom-auto sm:left-1/2 sm:max-h-[min(85dvh,48rem)] sm:w-[calc(100%_-_3rem)] sm:max-w-lg sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-2xl">
