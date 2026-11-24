@@ -73,8 +73,9 @@ export default async function Impressao({ searchParams }: PageProps<"/admin/impr
   };
 
   return (
-    <div className="flex flex-col gap-5">
-      <style>{`@page { size: A4; margin: 10mm; }`}</style>
+    <div className="flex flex-col gap-5 print:block">
+      {/* Impressão: o Safari não divide flexbox em páginas e cortava a folha; aqui tudo vira bloco. */}
+      <style>{`@page { size: A4; margin: 10mm; } @media print { html, body { height: auto !important; min-height: 0 !important; overflow: visible !important; background: #fff !important; } }`}</style>
 
       <div className="flex flex-wrap items-center justify-between gap-3 print:hidden">
         <div>
@@ -120,9 +121,9 @@ export default async function Impressao({ searchParams }: PageProps<"/admin/impr
         &quot;Salvar como PDF&quot;. As linhas tracejadas são guia de corte.
       </p>
 
-      <div className="flex min-w-0 flex-wrap gap-[4mm] rounded-xl bg-white p-3 sm:p-4 print:rounded-none print:p-0">
+      <div className="flex min-w-0 flex-wrap gap-[4mm] rounded-xl bg-white p-3 sm:p-4 print:block print:rounded-none print:p-0">
         {artes.map(({ codigo, qr }) => (
-          <div key={codigo} className="min-w-0 max-w-full shrink-0 break-inside-avoid border border-dashed border-slate-300 p-[2mm] print:max-w-none" style={{ width: `calc(${f.cm}cm + 4mm + 2px)` }}>
+          <div key={codigo} className="min-w-0 max-w-full shrink-0 break-inside-avoid border border-dashed border-slate-300 p-[2mm] print:mr-[4mm] print:mb-[4mm] print:inline-block print:max-w-none print:align-top" style={{ width: `calc(${f.cm}cm + 4mm + 2px)` }}>
             <ArtePlaca codigo={codigo} qrDataUri={qr} tamanho={ladoPx} modelo={modeloAtual} responsiva />
             <a href={`${urlArte(codigo)}&baixar=1`} aria-label={`Baixar PNG da placa ${codigo}`}
               className={buttonVariants({ variant: "outline", className: "mt-2 min-h-11 w-full print:hidden" })}>

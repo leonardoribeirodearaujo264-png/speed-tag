@@ -86,7 +86,7 @@ function RodapeUsuario() {
 
 export default function LayoutAdmin({ children }: LayoutProps<"/admin">) {
   return (
-    <div className={`flex min-h-dvh w-full min-w-0 flex-1 bg-slate-50 ${TOQUE_MINIMO_CELULAR}`}>
+    <div className={`flex min-h-dvh w-full min-w-0 flex-1 bg-slate-50 print:block print:min-h-0 print:bg-white ${TOQUE_MINIMO_CELULAR}`}>
       {/* Menu lateral (computador) */}
       <aside className="sticky top-0 hidden h-dvh w-64 shrink-0 flex-col bg-marca-fundo print:hidden lg:flex">
         <div
@@ -107,7 +107,7 @@ export default function LayoutAdmin({ children }: LayoutProps<"/admin">) {
         </div>
       </aside>
 
-      <div className="flex min-w-0 flex-1 flex-col">
+      <div className="flex min-w-0 flex-1 flex-col print:block">
         {/* Barra do topo (celular e tablet) */}
         <header className="pt-seguro sticky top-0 w-full min-w-0 z-30 bg-marca-fundo/95 shadow-[0_1px_0_rgba(255,255,255,0.06)] backdrop-blur print:hidden lg:hidden">
           <div className="flex h-14 items-center gap-2 pr-[max(1rem,env(safe-area-inset-right))] pl-[max(1rem,env(safe-area-inset-left))] sm:h-16">

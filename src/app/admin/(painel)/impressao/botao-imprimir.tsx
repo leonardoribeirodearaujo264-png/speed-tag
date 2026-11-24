@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useState } from "react";
 import { Download, Printer, Share2 } from "lucide-react";
@@ -8,6 +8,7 @@ export function BotaoImprimir({ urls, lado, nome }: { urls: string[]; lado: numb
   const [pdf, setPdf] = useState<{ arquivo: File; url: string }>();
   const [ocupado, setOcupado] = useState(false);
   const [erro, setErro] = useState("");
+  const [progresso, setProgresso] = useState({ feitas: 0, total: 0 });
   useEffect(() => () => { if (pdf) URL.revokeObjectURL(pdf.url); }, [pdf]);
 
   async function preparar() {
@@ -15,11 +16,13 @@ export function BotaoImprimir({ urls, lado, nome }: { urls: string[]; lado: numb
     setErro("");
     try {
       const { gerarFolhaPdf } = await import("./folha-pdf");
-      const blob = await gerarFolhaPdf(urls, lado);
+      const blob = await gerarFolhaPdf(urls, lado, (feitas, total) => setProgresso({ feitas, total }));
       const arquivo = new File([blob], nome, { type: "application/pdf" });
       setPdf({ arquivo, url: URL.createObjectURL(arquivo) });
-    } catch {
-      setErro("Não foi possível gerar o PDF. Tente novamente ou baixe a imagem PNG.");
+    } catch (falha) {
+      console.error("[folha-pdf]", falha);
+      const detalhe = falha instanceof Error && falha.message.startsWith("Placa ") ? ` ${falha.message}` : "";
+      setErro(`Não foi possível gerar o PDF.${detalhe} Tente novamente ou baixe as imagens PNG.`);
     } finally {
       setOcupado(false);
     }
@@ -49,7 +52,7 @@ export function BotaoImprimir({ urls, lado, nome }: { urls: string[]; lado: numb
           <Button onClick={compartilhar} variant="outline" className="min-h-11"><Share2 aria-hidden /> Compartilhar PDF</Button>
         </>
       ) : (
-        <Button onClick={preparar} disabled={ocupado} className="min-h-11"><Download aria-hidden /> {ocupado ? "Gerando PDF..." : "Preparar PDF"}</Button>
+        <Button onClick={preparar} disabled={ocupado} className="min-h-11"><Download aria-hidden /> {ocupado ? `Gerando PDF... ${progresso.feitas} de ${progresso.total}` : "Gerar PDF"}</Button>
       )}
       {erro && <p role="status" className="w-full text-sm text-slate-700">{erro}</p>}
     </div>

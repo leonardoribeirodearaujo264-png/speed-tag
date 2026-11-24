@@ -1,7 +1,7 @@
 import { verificarAdminApi } from "@/lib/auth";
 import { buscarPlacaPorCodigo, modeloDoLote, respostaErroBusca } from "@/lib/placas/consultas";
 import { modeloArte } from "@/lib/placas/modelos-arte";
-import { respostaArtePlaca } from "@/lib/placas/resposta-arte";
+import { ladoDaArte, respostaArtePlaca } from "@/lib/placas/resposta-arte";
 
 export async function GET(request: Request, ctx: RouteContext<"/api/admin/placas/[codigo]/arte">) {
   const sessao = await verificarAdminApi();
@@ -17,5 +17,5 @@ export async function GET(request: Request, ctx: RouteContext<"/api/admin/placas
   // Sem ?modelo=, vale a arte salva no lote da placa.
   const pedido = parametros.get("modelo");
   const modelo = pedido ? modeloArte(pedido) : await modeloDoLote(sessao.supabase, placa.lote_id);
-  return respostaArtePlaca(placa.codigo, modelo, baixar);
+  return respostaArtePlaca(placa.codigo, modelo, baixar, ladoDaArte(parametros.get("lado")));
 }
