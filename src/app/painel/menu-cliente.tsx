@@ -1,6 +1,7 @@
 ﻿import type { ReactNode } from "react";
 import Link from "next/link";
 import { LogoCompleta } from "@/components/marca/marca";
+import { AbasCliente } from "./abas-cliente";
 import { MenuConta } from "./menu-conta";
 
 export function PaginaCliente({ children }: { children: ReactNode }) {
@@ -13,6 +14,7 @@ export function PaginaCliente({ children }: { children: ReactNode }) {
           </Link>
           <MenuConta />
         </div>
+        <AbasCliente />
       </header>
       <main className="mx-auto w-full max-w-3xl px-4 pt-5 pb-[max(2rem,env(safe-area-inset-bottom))] sm:px-6 sm:pt-8">{children}</main>
     </div>

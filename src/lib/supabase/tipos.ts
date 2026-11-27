@@ -184,6 +184,42 @@ export type AtivacaoPendente = {
   resultado: string | null;
 };
 
+export type CanalVenda = "porta_a_porta" | "whatsapp" | "indicacao" | "outro";
+export type PagamentoVenda = "pix" | "dinheiro" | "cartao";
+export type StatusVenda = "pago" | "pendente";
+
+/** numeric do Postgres chega como number pelo PostgREST. */
+export type VendaCaixa = {
+  id: string;
+  dono_id: string;
+  quantidade: number;
+  valor_unitario: number;
+  custo_unitario: number;
+  canal: CanalVenda;
+  pagamento: PagamentoVenda;
+  status: StatusVenda;
+  vendida_em: string;
+};
+
+export type CompraCaixa = {
+  id: string;
+  dono_id: string;
+  quantidade: number;
+  custo_unitario: number;
+  comprada_em: string;
+};
+
+export type ResumoCaixaBanco = {
+  faturamento: number;
+  custos: number;
+  vendas: number;
+  unidades: number;
+  pendente: number;
+  comprado: number;
+  vendido: number;
+  custo_compras: number;
+};
+
 export type ResultadoConclusaoAtivacoes = { ativadas: string[]; recusadas: string[] };
 
 export type Database = {
@@ -196,6 +232,8 @@ export type Database = {
       leituras: Tabela<Leitura, "placa_id" | "origem">;
       historico_placa: Tabela<HistoricoPlaca, "placa_id" | "acao">;
       acessos_invalidos: Tabela<AcessoInvalido, "codigo_tentado">;
+      caixa_vendas: Tabela<VendaCaixa, "id" | "quantidade" | "valor_unitario" | "custo_unitario" | "canal" | "pagamento" | "status">;
+      caixa_compras: Tabela<CompraCaixa, "id" | "quantidade" | "custo_unitario">;
       speed_tag_ativacoes_pendentes: Tabela<AtivacaoPendente, "placa_id" | "email" | "conta_nova" | "origem" | "nome" | "link">;
     };
     Views: { [_ in never]: never };
@@ -204,6 +242,7 @@ export type Database = {
       speed_tag_editar_empresa: { Args: { p_empresa: string; p_nome: string; p_email: string | null; p_link: string | null }; Returns: boolean };
       speed_tag_editar_empresa_completa: { Args: { p_empresa: string; p_nome: string; p_email: string | null; p_link: string | null }; Returns: boolean };
       speed_tag_remover_placa_da_empresa: { Args: { p_empresa: string; p_codigo: string }; Returns: boolean };
+      speed_tag_resumo_caixa: { Args: { p_inicio: string | null }; Returns: ResumoCaixaBanco[] };
       speed_tag_acessos_empresas: { Args: { p_empresas: string[] }; Returns: { empresa_id: string; acessos: number }[] };
       speed_tag_gerenciar_empresa_cliente: { Args: { p_empresa: string; p_link: string | null }; Returns: boolean };
       speed_tag_vincular_empresa: { Args: { p_empresa: string; p_codigo: string }; Returns: boolean };

@@ -1,4 +1,4 @@
-import { MODELOS_ARTE, MODELO_PADRAO, RAIO_CANTO, type ModeloArte } from "@/lib/placas/modelos-arte";
+import { MODELOS_ARTE, MODELO_PADRAO, type ModeloArte } from "@/lib/placas/modelos-arte";
 
 /**
  * Arte da placa (frente): a arte do cliente como fundo e o QR Code da placa no quadrado
@@ -19,7 +19,7 @@ type Props = {
 export function ArtePlaca({ codigo, qrDataUri, tamanho, modelo = MODELO_PADRAO, fundo, responsiva = false }: Props) {
   const u = tamanho / 1000;
   const px = (v: number) => Math.round(v * u);
-  const { arquivo, qr } = MODELOS_ARTE[modelo];
+  const { arquivo, qr, cantos } = MODELOS_ARTE[modelo];
   const ladoQr = px(qr.lado);
   const medida = (valor: number) => responsiva ? `${valor / tamanho * 100}%` : valor;
 
@@ -30,9 +30,12 @@ export function ArtePlaca({ codigo, qrDataUri, tamanho, modelo = MODELO_PADRAO, 
         display: "flex",
         width: medida(tamanho),
         ...(responsiva ? { aspectRatio: "1", containerType: "inline-size" } : { height: tamanho }),
-        borderRadius: px(RAIO_CANTO),
+        // Raio por canto: o recorte fica dentro da cor da arte (sem fio branco na curva).
+        borderTopLeftRadius: px(cantos.supEsq),
+        borderTopRightRadius: px(cantos.supDir),
+        borderBottomRightRadius: px(cantos.infDir),
+        borderBottomLeftRadius: px(cantos.infEsq),
         overflow: "hidden",
-        backgroundColor: "#ffffff",
       }}
     >
       {/* eslint-disable-next-line @next/next/no-img-element -- também renderizado pelo Satori */}

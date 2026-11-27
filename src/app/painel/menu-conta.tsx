@@ -3,7 +3,7 @@
 import { useRef } from "react";
 import Link from "next/link";
 import { Menu } from "@base-ui/react/menu";
-import { Building2, LogOut, Menu as IconeMenu } from "lucide-react";
+import { Building2, LogOut, Menu as IconeMenu, Wallet } from "lucide-react";
 
 const item = "flex min-h-11 w-full cursor-pointer items-center gap-2 rounded-lg px-3 text-sm text-slate-700 outline-none data-highlighted:bg-slate-100 data-highlighted:text-slate-900";
 
@@ -25,6 +25,9 @@ export function MenuConta() {
             <Menu.Popup className="w-64 max-w-[var(--available-width)] rounded-2xl border border-slate-200 bg-white p-1.5 shadow-xl outline-none">
               <Menu.LinkItem render={<Link href="/painel/empresas" />} closeOnClick className={item}>
                 <Building2 className="size-4 text-slate-500" aria-hidden /> Empresas
+              </Menu.LinkItem>
+              <Menu.LinkItem render={<Link href="/painel/caixa" />} closeOnClick className={item}>
+                <Wallet className="size-4 text-slate-500" aria-hidden /> Caixa
               </Menu.LinkItem>
               <Menu.Item className={item} onClick={() => sair.current?.requestSubmit()}>
                 <LogOut className="size-4 text-slate-500" aria-hidden /> Sair
