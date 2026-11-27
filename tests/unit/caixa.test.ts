@@ -89,3 +89,10 @@ describe("atalhos \"Usados antes\"", () => {
     expect(valorParaCampo(0)).toBe("");
   });
 });
+
+describe("botão de compra pelo WhatsApp", async () => {
+  const { linkWhatsappCompra } = await import("@/lib/contato");
+  it("abre o número de vendas com a mensagem pronta", () => {
+    expect(linkWhatsappCompra()).toBe("https://wa.me/5511966218520?text=Ol%C3%A1%2C%20tenho%20interesse%20em%20mais%20plaquinhas.");
+  });
+});

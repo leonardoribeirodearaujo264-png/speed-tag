@@ -34,6 +34,7 @@ export async function lancarVenda(_anterior: EstadoCaixa, dados: FormData): Prom
     return { ok: false, mensagem: "Não foi possível salvar a venda. Tente novamente." };
   }
   revalidatePath("/painel/caixa");
+  revalidatePath("/admin/caixa");
   return { ok: true, mensagem: "Venda lançada." };
 }
 
@@ -48,7 +49,44 @@ export async function registrarCompra(_anterior: EstadoCaixa, dados: FormData): 
     return { ok: false, mensagem: "Não foi possível registrar a compra. Tente novamente." };
   }
   revalidatePath("/painel/caixa");
+  revalidatePath("/admin/caixa");
   return { ok: true, mensagem: "Compra registrada no estoque." };
+}
+
+function revalidarCaixa() {
+  revalidatePath("/painel/caixa");
+  revalidatePath("/admin/caixa");
+}
+
+/** Edita uma venda da própria conta (o id vem do formulário; o banco confere o dono). */
+export async function editarVenda(_anterior: EstadoCaixa, dados: FormData): Promise<EstadoCaixa> {
+  const venda = esquemaVenda.safeParse(Object.fromEntries(dados));
+  if (!venda.success) return { ok: false, mensagem: primeiroErro(venda.error) };
+  const conta = await contaLiberada();
+  if (!conta.supabase) return { ok: false, mensagem: conta.erro };
+  const { id, ...campos } = venda.data;
+  const { data, error } = await conta.supabase.from("caixa_vendas").update(campos).eq("id", id).select("id");
+  if (error || !data?.length) {
+    if (error) console.error("[caixa] editar venda", error.code);
+    return { ok: false, mensagem: "Não foi possível salvar a alteração. Atualize a página e tente de novo." };
+  }
+  revalidarCaixa();
+  return { ok: true, mensagem: "Venda atualizada." };
+}
+
+export async function editarCompra(_anterior: EstadoCaixa, dados: FormData): Promise<EstadoCaixa> {
+  const compra = esquemaCompra.safeParse(Object.fromEntries(dados));
+  if (!compra.success) return { ok: false, mensagem: primeiroErro(compra.error) };
+  const conta = await contaLiberada();
+  if (!conta.supabase) return { ok: false, mensagem: conta.erro };
+  const { id, ...campos } = compra.data;
+  const { data, error } = await conta.supabase.from("caixa_compras").update(campos).eq("id", id).select("id");
+  if (error || !data?.length) {
+    if (error) console.error("[caixa] editar compra", error.code);
+    return { ok: false, mensagem: "Não foi possível salvar a alteração. Atualize a página e tente de novo." };
+  }
+  revalidarCaixa();
+  return { ok: true, mensagem: "Compra atualizada." };
 }
 
 export async function excluirLancamento(tipo: "venda" | "compra", id: string): Promise<EstadoCaixa> {
@@ -59,5 +97,6 @@ export async function excluirLancamento(tipo: "venda" | "compra", id: string): P
   const { data, error } = await conta.supabase.from(tabela).delete().eq("id", id).select("id");
   if (error || !data?.length) return { ok: false, mensagem: "Não foi possível excluir. Atualize a página e tente de novo." };
   revalidatePath("/painel/caixa");
+  revalidatePath("/admin/caixa");
   return { ok: true, mensagem: tipo === "venda" ? "Venda excluída." : "Compra excluída." };
 }

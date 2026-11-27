@@ -1,6 +1,7 @@
 ﻿import type { ReactNode } from "react";
 import Link from "next/link";
 import { LogoCompleta } from "@/components/marca/marca";
+import { BotaoComprar } from "@/components/placa/botao-comprar";
 import { AbasCliente } from "./abas-cliente";
 import { MenuConta } from "./menu-conta";
 
@@ -12,7 +13,10 @@ export function PaginaCliente({ children }: { children: ReactNode }) {
           <Link href="/painel/empresas" aria-label="Speed Tag, minhas empresas" className="rounded-lg focus-visible:ring-2 focus-visible:ring-cyan-300">
             <LogoCompleta className="h-8" />
           </Link>
-          <MenuConta />
+          <div className="flex items-center gap-1.5">
+            <BotaoComprar className="px-3" />
+            <MenuConta />
+          </div>
         </div>
         <AbasCliente />
       </header>

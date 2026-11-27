@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useEffect, useRef, useState } from "react";
-import { History } from "lucide-react";
+import { History, Pencil } from "lucide-react";
 import { toast } from "sonner";
 import { DialogoEmpresa } from "@/components/placa/dialogo-empresa";
 import { Button } from "@/components/ui/button";
@@ -12,7 +12,8 @@ import {
   type ModeloCompra, type ModeloVenda,
 } from "@/lib/caixa/regras";
 import type { CanalVenda, PagamentoVenda, StatusVenda } from "@/lib/supabase/tipos";
-import { lancarVenda, registrarCompra, type EstadoCaixa } from "./acoes";
+import { editarCompra, editarVenda, lancarVenda, registrarCompra, type EstadoCaixa } from "./acoes";
+import type { TemaCaixa } from "./tema";
 
 const INICIAL: EstadoCaixa = { ok: false, mensagem: null };
 
@@ -87,12 +88,23 @@ const rotuloCompra = (m: ModeloCompra) => `${plural(m.quantidade)} · ${formatar
 
 type CamposVenda = { quantidade: string; valor: string; custo: string; canal: CanalVenda; pagamento: PagamentoVenda; status: StatusVenda };
 
-function FormVenda({ custoMedio, modelos, fechar }: { custoMedio: number; modelos: readonly ModeloVenda[]; fechar: () => void }) {
-  const [estado, acao, salvando] = useActionState(lancarVenda, INICIAL);
-  const [id] = useState(() => crypto.randomUUID());
-  // Canal, pagamento e status começam como na última venda; valores, em branco até escolher um atalho.
+export type VendaEditavel = ModeloVenda & { id: string };
+export type CompraEditavel = ModeloCompra & { id: string };
+
+const camposDaVenda = (m: ModeloVenda): CamposVenda => ({
+  quantidade: String(m.quantidade), valor: valorParaCampo(m.valor_unitario), custo: valorParaCampo(m.custo_unitario),
+  canal: m.canal, pagamento: m.pagamento, status: m.status,
+});
+
+/** Lançar (sem `editando`) ou editar uma venda existente (campos já preenchidos, mesmo id). */
+function FormVenda({ custoMedio = 0, modelos = [], editando, fechar }: {
+  custoMedio?: number; modelos?: readonly ModeloVenda[]; editando?: VendaEditavel; fechar: () => void;
+}) {
+  const [estado, acao, salvando] = useActionState(editando ? editarVenda : lancarVenda, INICIAL);
+  const [id] = useState(() => editando?.id ?? crypto.randomUUID());
+  // Nova venda: canal e pagamento como na última; valores em branco até escolher um atalho.
   const ultima = modelos[0];
-  const [campos, setCampos] = useState<CamposVenda>({
+  const [campos, setCampos] = useState<CamposVenda>(() => editando ? camposDaVenda(editando) : {
     quantidade: "1", valor: "", custo: valorParaCampo(custoMedio),
     canal: ultima?.canal ?? "porta_a_porta", pagamento: ultima?.pagamento ?? "pix", status: "pago",
   });
@@ -100,18 +112,15 @@ function FormVenda({ custoMedio, modelos, fechar }: { custoMedio: number; modelo
   const qtd = Number.parseInt(campos.quantidade, 10) || 0;
   const { total, lucro } = totalVenda(qtd, lerValor(campos.valor) || 0, lerValor(campos.custo) || 0);
   const definir = <K extends keyof CamposVenda>(campo: K, valor: CamposVenda[K]) => setCampos((c) => ({ ...c, [campo]: valor }));
-  const aplicar = (m: ModeloVenda) => setCampos((c) => ({
-    ...c, quantidade: String(m.quantidade), valor: valorParaCampo(m.valor_unitario), custo: valorParaCampo(m.custo_unitario),
-    canal: m.canal, pagamento: m.pagamento, status: m.status,
-  }));
+  const aplicar = (m: ModeloVenda) => setCampos(camposDaVenda(m));
 
   return (
     <form action={acao} className="flex flex-col gap-5">
       <input type="hidden" name="id" value={id} />
-      <Atalhos modelos={modelos} rotulo={rotuloVenda} aoEscolher={aplicar} />
+      {!editando && <Atalhos modelos={modelos} rotulo={rotuloVenda} aoEscolher={aplicar} />}
       <div className="grid grid-cols-3 gap-2.5">
         <CampoNumero id="quantidade" rotulo="Placas" type="number" inputMode="numeric" min={1} max={100000} value={campos.quantidade} onChange={(e) => definir("quantidade", e.target.value)} />
-        <CampoNumero id="valor_unitario" rotulo="Valor un." inputMode="decimal" placeholder="0,00" value={campos.valor} onChange={(e) => definir("valor", e.target.value)} autoFocus={!modelos.length} />
+        <CampoNumero id="valor_unitario" rotulo="Valor un." inputMode="decimal" placeholder="0,00" value={campos.valor} onChange={(e) => definir("valor", e.target.value)} autoFocus={!editando && !modelos.length} />
         <CampoNumero id="custo_unitario" rotulo="Custo un." inputMode="decimal" placeholder="0,00" value={campos.custo} onChange={(e) => definir("custo", e.target.value)} />
       </div>
       <Opcoes nome="canal" rotulo="Canal" opcoes={CANAIS} valor={campos.canal} aoMudar={(v) => definir("canal", v)} />
@@ -122,15 +131,17 @@ function FormVenda({ custoMedio, modelos, fechar }: { custoMedio: number; modelo
         <span>Lucro <strong className={`tabular-nums ${lucro < 0 ? "text-red-700" : ""}`}>{formatarMoeda(lucro)}</strong></span>
       </div>
       {estado.mensagem && !estado.ok && <p role="alert" className="text-sm text-red-700">{estado.mensagem}</p>}
-      <Button type="submit" className="min-h-12 w-full text-base" disabled={salvando}>{salvando ? "Salvando..." : "Salvar venda"}</Button>
+      <Button type="submit" className="min-h-12 w-full text-base" disabled={salvando}>{salvando ? "Salvando..." : editando ? "Salvar alterações" : "Salvar venda"}</Button>
     </form>
   );
 }
 
-function FormCompra({ modelos, fechar }: { modelos: readonly ModeloCompra[]; fechar: () => void }) {
-  const [estado, acao, salvando] = useActionState(registrarCompra, INICIAL);
-  const [id] = useState(() => crypto.randomUUID());
-  const [campos, setCampos] = useState({ quantidade: "", custo: "" });
+function FormCompra({ modelos = [], editando, fechar }: { modelos?: readonly ModeloCompra[]; editando?: CompraEditavel; fechar: () => void }) {
+  const [estado, acao, salvando] = useActionState(editando ? editarCompra : registrarCompra, INICIAL);
+  const [id] = useState(() => editando?.id ?? crypto.randomUUID());
+  const [campos, setCampos] = useState(() => editando
+    ? { quantidade: String(editando.quantidade), custo: valorParaCampo(editando.custo_unitario) }
+    : { quantidade: "", custo: "" });
   useSucesso(estado, fechar);
   const qtd = Number.parseInt(campos.quantidade, 10) || 0;
   const { total } = totalVenda(qtd, lerValor(campos.custo) || 0, 0);
@@ -140,16 +151,16 @@ function FormCompra({ modelos, fechar }: { modelos: readonly ModeloCompra[]; fec
   return (
     <form action={acao} className="flex flex-col gap-5">
       <input type="hidden" name="id" value={id} />
-      <Atalhos modelos={modelos} rotulo={rotuloCompra} aoEscolher={aplicar} />
+      {!editando && <Atalhos modelos={modelos} rotulo={rotuloCompra} aoEscolher={aplicar} />}
       <div className="grid grid-cols-2 gap-2.5">
-        <CampoNumero id="quantidade" rotulo="Placas compradas" type="number" inputMode="numeric" min={1} max={100000} value={campos.quantidade} onChange={mudar("quantidade")} autoFocus={!modelos.length} />
+        <CampoNumero id="quantidade" rotulo="Placas compradas" type="number" inputMode="numeric" min={1} max={100000} value={campos.quantidade} onChange={mudar("quantidade")} autoFocus={!editando && !modelos.length} />
         <CampoNumero id="custo_unitario" rotulo="Custo un." inputMode="decimal" placeholder="0,00" value={campos.custo} onChange={mudar("custo")} />
       </div>
       <p className="rounded-xl bg-slate-50 px-4 py-3 text-sm text-slate-700" aria-live="polite">
         Total da compra <strong className="tabular-nums text-slate-900">{formatarMoeda(total)}</strong>. Entra no estoque e no custo médio.
       </p>
       {estado.mensagem && !estado.ok && <p role="alert" className="text-sm text-red-700">{estado.mensagem}</p>}
-      <Button type="submit" className="min-h-12 w-full text-base" disabled={salvando}>{salvando ? "Salvando..." : "Registrar compra"}</Button>
+      <Button type="submit" className="min-h-12 w-full text-base" disabled={salvando}>{salvando ? "Salvando..." : editando ? "Salvar alterações" : "Registrar compra"}</Button>
     </form>
   );
 }
@@ -172,12 +183,50 @@ export function LancarVenda({ custoMedio, modelos }: { custoMedio: number; model
   );
 }
 
-export function RegistrarCompra({ modelos }: { modelos: ModeloCompra[] }) {
+export function RegistrarCompra({ modelos, tema }: { modelos: ModeloCompra[]; tema: TemaCaixa }) {
   const d = useDialogo();
   return (
     <DialogoEmpresa tipo="criar" botao="Compra" titulo="Registrar compra" descricao="Placas que entraram no seu estoque." aberto={d.aberto} aoMudar={d.mudar}
-      classeBotao="min-h-11 shrink-0 justify-center rounded-xl border border-slate-600 bg-transparent px-3 text-sm text-white hover:bg-white/10">
+      classeBotao={`min-h-11 shrink-0 justify-center rounded-xl border bg-transparent px-3 text-sm ${
+        tema === "escuro" ? "border-slate-600 text-white hover:bg-white/10" : "border-slate-200 text-slate-800 hover:bg-slate-50"
+      }`}>
       <FormCompra key={d.rodada} modelos={modelos} fechar={d.fechar} />
     </DialogoEmpresa>
+  );
+}
+
+/** Lápis da linha: abre a mesma janela com os dados do lançamento para corrigir. */
+function BotaoEditar({ rotulo, tema, aoClicar }: { rotulo: string; tema: TemaCaixa; aoClicar: () => void }) {
+  return (
+    <button type="button" onClick={aoClicar} aria-label={rotulo}
+      className={`grid size-11 shrink-0 place-items-center rounded-xl focus-visible:ring-2 ${
+        tema === "escuro" ? "text-slate-400 hover:bg-white/10 hover:text-white focus-visible:ring-cyan-300" : "text-slate-400 hover:bg-slate-100 hover:text-slate-800 focus-visible:ring-marca"
+      }`}>
+      <Pencil className="size-4" aria-hidden />
+    </button>
+  );
+}
+
+export function EditarVenda({ venda, descricao, tema }: { venda: VendaEditavel; descricao: string; tema: TemaCaixa }) {
+  const d = useDialogo();
+  return (
+    <>
+      <BotaoEditar rotulo={`Editar venda ${descricao}`} tema={tema} aoClicar={() => d.mudar(true)} />
+      <DialogoEmpresa tipo="editar" botao="Editar venda" descricao={`Venda ${descricao}.`} aberto={d.aberto} aoMudar={d.mudar} semGatilho>
+        <FormVenda key={d.rodada} editando={venda} fechar={d.fechar} />
+      </DialogoEmpresa>
+    </>
+  );
+}
+
+export function EditarCompra({ compra, descricao, tema }: { compra: CompraEditavel; descricao: string; tema: TemaCaixa }) {
+  const d = useDialogo();
+  return (
+    <>
+      <BotaoEditar rotulo={`Editar compra ${descricao}`} tema={tema} aoClicar={() => d.mudar(true)} />
+      <DialogoEmpresa tipo="editar" botao="Editar compra" descricao={`Compra ${descricao}.`} aberto={d.aberto} aoMudar={d.mudar} semGatilho>
+        <FormCompra key={d.rodada} editando={compra} fechar={d.fechar} />
+      </DialogoEmpresa>
+    </>
   );
 }

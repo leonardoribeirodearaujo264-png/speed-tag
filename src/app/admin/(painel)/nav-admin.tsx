@@ -3,7 +3,7 @@
 import { Suspense, useCallback, useEffect, useId, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Boxes, Building2, LayoutDashboard, Menu, Nfc, Tags, UserCheck, Users, X } from "lucide-react";
+import { Boxes, Building2, LayoutDashboard, Menu, Nfc, Tags, UserCheck, Users, Wallet, X } from "lucide-react";
 import { cn } from "cn";
 import { LogoCompleta } from "@/components/marca/marca";
 import { ROTA_PREPARO_NFC } from "@/lib/placas/preparo-nfc";
@@ -14,6 +14,7 @@ const ITENS = [
   { href: "/admin/placas", rotulo: "Placas", icone: Tags, exato: false },
   { href: ROTA_PREPARO_NFC, rotulo: "Preparar NFC", icone: Nfc, exato: false },
   { href: "/admin/lotes", rotulo: "Lotes", icone: Boxes, exato: false },
+  { href: "/admin/caixa", rotulo: "Caixa", icone: Wallet, exato: false },
   { href: "/admin/usuarios", rotulo: "Gestão de Clientes", icone: Users, exato: false },
   { href: "/admin/cadastros", rotulo: "Cadastros", icone: UserCheck, exato: false },
 ] as const;
