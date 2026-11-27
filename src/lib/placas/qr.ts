@@ -14,11 +14,22 @@ export const TAMANHO_PNG_PADRAO = 1024;
 export const TAMANHO_PNG_MIN = 128;
 export const TAMANHO_PNG_MAX = 4096;
 
-export function gerarQrSvg(texto: string, { transparente = false }: { transparente?: boolean } = {}): Promise<string> {
+/** H (~30%): usado quando o código da placa fica impresso no meio do QR, cobrindo parte dele. */
+export type NivelCorrecao = "Q" | "H";
+
+export function gerarQrSvg(
+  texto: string,
+  { transparente = false, nivel = OPCOES.errorCorrectionLevel }: { transparente?: boolean; nivel?: NivelCorrecao } = {},
+): Promise<string> {
   // Transparente só dentro da arte da placa: a margem fica sobre o branco do cartão
   // e não cobre a moldura arredondada do quadrado do QR.
   const color = transparente ? { ...OPCOES.color, light: "#ffffff00" } : OPCOES.color;
-  return QRCode.toString(texto, { ...OPCOES, color, type: "svg" });
+  return QRCode.toString(texto, { ...OPCOES, errorCorrectionLevel: nivel, color, type: "svg" });
+}
+
+/** QR da etiqueta (fundo branco). Com o código no meio, sobe a correção para H. */
+export async function qrDaEtiqueta(texto: string, codigoNoMeio: boolean): Promise<string> {
+  return svgParaDataUri(await gerarQrSvg(texto, { nivel: codigoNoMeio ? "H" : "Q" }));
 }
 
 /** QR em data URI pronto para a arte da placa (fundo transparente). */

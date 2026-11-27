@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, CheckCircle2, Clock, FileSpreadsheet, FolderArchive, Nfc, Package, Printer, Tags } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Clock, FileSpreadsheet, FolderArchive, Nfc, Package, Printer, QrCode, Tags } from "lucide-react";
 import { z } from "zod";
 import { CabecalhoPagina, CartaoIndicador, Painel, TituloPainel } from "@/components/admin/ui";
 import { buttonVariants } from "@/components/ui/button";
@@ -104,7 +104,7 @@ export default async function DetalheLote({ params, searchParams }: PageProps<"/
         </Painel>
 
         <Painel>
-          <TituloPainel titulo="Exportar para a gráfica" descricao="Planilha com os links, QR Codes e folha de impressão." />
+          <TituloPainel titulo="Exportar para a gráfica" descricao="Planilha, PNGs de cada placa a 300 dpi, folha de impressão e folha só de QR Codes." />
           <div className="flex flex-wrap gap-2 px-5 pb-6 sm:px-6">
             <a href={`${exportar}?formato=csv`} className={buttonVariants({ variant: "outline" })}>
               <FileSpreadsheet aria-hidden /> Planilha CSV
@@ -113,7 +113,10 @@ export default async function DetalheLote({ params, searchParams }: PageProps<"/
               <FolderArchive aria-hidden /> QR Codes (ZIP)
             </a>
             <Link href={`/admin/impressao?lote=${id}`} className={buttonVariants({ variant: "outline" })}>
-              <Printer aria-hidden /> Folha de impressão / PDF
+              <Printer aria-hidden /> Folha de impressão, PDF e PNGs
+            </Link>
+            <Link href={`/admin/impressao?lote=${id}&tipo=qr`} className={buttonVariants({ variant: "outline" })}>
+              <QrCode aria-hidden /> Folha só de QR Codes
             </Link>
           </div>
         </Painel>

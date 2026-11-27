@@ -1,13 +1,20 @@
+import { CARREGAR_JUNTAS, baixarImagemPlaca } from "./carregar-imagem";
+
 const MM_POR_POLEGADA = 25.4;
 const PONTOS_POR_MM = 72 / MM_POR_POLEGADA;
-const PIXELS_POR_MM = 8;
+
+/** 12 px/mm ≈ 305 dpi, resolução de gráfica. A folha A4 fica com 2520 x 3564 px. */
+const PIXELS_POR_MM = 12;
 const LARGURA = 210;
 const ALTURA = 297;
 const MARGEM = 10;
 const FOLGA = 5;
 const encoder = new TextEncoder();
 
-function montarPdf(paginas: Uint8Array[], largura: number, altura: number) {
+/** Página já codificada: Flate (sem perda) ou JPEG, só se o navegador não comprimir. */
+type PaginaPdf = { dados: Uint8Array; filtro: "FlateDecode" | "DCTDecode" };
+
+function montarPdf(paginas: PaginaPdf[], largura: number, altura: number) {
   const blocos: ArrayBuffer[] = [];
   const offsets = [0];
   let posicao = 0;
@@ -32,11 +39,11 @@ function montarPdf(paginas: Uint8Array[], largura: number, altura: number) {
   objeto(2, `<< /Type /Pages /Kids [${refs}] /Count ${paginas.length} >>`);
   const w = (LARGURA * PONTOS_POR_MM).toFixed(4);
   const h = (ALTURA * PONTOS_POR_MM).toFixed(4);
-  paginas.forEach((jpeg, i) => {
+  paginas.forEach(({ dados, filtro }, i) => {
     const id = 3 + i * 3;
     const desenho = encoder.encode(`q ${w} 0 0 ${h} 0 0 cm /Arte Do Q`);
     objeto(id, `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${w} ${h}] /Resources << /XObject << /Arte ${id + 1} 0 R >> >> /Contents ${id + 2} 0 R >>`);
-    objeto(id + 1, `<< /Type /XObject /Subtype /Image /Width ${largura} /Height ${altura} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${jpeg.byteLength} >>`, jpeg);
+    objeto(id + 1, `<< /Type /XObject /Subtype /Image /Width ${largura} /Height ${altura} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /${filtro} /Length ${dados.byteLength} >>`, dados);
     objeto(id + 2, `<< /Length ${desenho.byteLength} >>`, desenho);
   });
   const xref = posicao;
@@ -46,19 +53,34 @@ function montarPdf(paginas: Uint8Array[], largura: number, altura: number) {
   return new Blob(blocos, { type: "application/pdf" });
 }
 
-const CARREGAR_JUNTAS = 4;
-
-/** Baixa a arte de uma placa já no tamanho da impressão (a rota aceita ?lado= em px). */
 async function carregarArte(url: string, ladoPx: number): Promise<ImageBitmap> {
-  const resposta = await fetch(`${url}${url.includes("?") ? "&" : "?"}lado=${ladoPx}`, { credentials: "same-origin" });
-  if (!resposta.ok) throw new Error(`Placa ${url.split("/").at(-2)}: erro ${resposta.status} ao gerar a imagem.`);
-  return createImageBitmap(await resposta.blob());
+  return createImageBitmap(await baixarImagemPlaca(url, ladoPx));
+}
+
+/** RGB cru da página comprimido em zlib (FlateDecode do PDF): sem a perda do JPEG. */
+async function paginaSemPerda(ctx: CanvasRenderingContext2D, largura: number, altura: number): Promise<PaginaPdf> {
+  const rgba = ctx.getImageData(0, 0, largura, altura).data;
+  const rgb = new Uint8Array(largura * altura * 3);
+  for (let i = 0, j = 0; i < rgba.length; i += 4, j += 3) {
+    rgb[j] = rgba[i];
+    rgb[j + 1] = rgba[i + 1];
+    rgb[j + 2] = rgba[i + 2];
+  }
+  const fluxo = new Blob([rgb]).stream().pipeThrough(new CompressionStream("deflate"));
+  return { dados: new Uint8Array(await new Response(fluxo).arrayBuffer()), filtro: "FlateDecode" };
+}
+
+async function paginaJpeg(canvas: HTMLCanvasElement): Promise<PaginaPdf> {
+  const jpeg = await new Promise<Blob>((resolve, reject) => {
+    canvas.toBlob((blob) => blob ? resolve(blob) : reject(new Error("Falha ao gerar página do PDF.")), "image/jpeg", 0.95);
+  });
+  return { dados: new Uint8Array(await jpeg.arrayBuffer()), filtro: "DCTDecode" };
 }
 
 /**
  * Monta a folha A4 em PDF no navegador: placas no tamanho real, várias por página, com guia
  * de corte. As imagens vêm do servidor no tamanho certo (não 2000 px), 4 de cada vez, para
- * caber na memória do celular com lotes grandes. `aoProgredir` recebe quantas já foram.
+ * caber na memória do celular com lotes grandes. Páginas sem perda (Flate) a ~305 dpi. `aoProgredir` recebe quantas já foram.
  */
 export async function gerarFolhaPdf(urls: readonly string[], ladoCm: number, aoProgredir?: (feitas: number, total: number) => void) {
   if (!urls.length) throw new Error("A folha está vazia.");
@@ -69,9 +91,10 @@ export async function gerarFolhaPdf(urls: readonly string[], ladoCm: number, aoP
   const canvas = document.createElement("canvas");
   canvas.width = LARGURA * PIXELS_POR_MM;
   canvas.height = ALTURA * PIXELS_POR_MM;
-  const ctx = canvas.getContext("2d", { alpha: false });
+  const ctx = canvas.getContext("2d", { alpha: false, willReadFrequently: true });
   if (!ctx || porPagina < 1) throw new Error("Não foi possível preparar a folha.");
-  const paginas: Uint8Array[] = [];
+  const paginas: PaginaPdf[] = [];
+  const semPerda = typeof CompressionStream === "function";
   const lado = ladoMm * PIXELS_POR_MM;
   let feitas = 0;
   aoProgredir?.(0, urls.length);
@@ -90,16 +113,14 @@ export async function gerarFolhaPdf(urls: readonly string[], ladoCm: number, aoP
         ctx.drawImage(img, x, y, lado, lado);
         img.close();
         ctx.strokeStyle = "#a0aab8";
-        ctx.setLineDash([6, 4]);
-        ctx.strokeRect(x - 2, y - 2, lado + 4, lado + 4);
+        ctx.lineWidth = 2;
+        ctx.setLineDash([9, 6]);
+        ctx.strokeRect(x - 3, y - 3, lado + 6, lado + 6);
       });
       feitas += grupo.length;
       aoProgredir?.(feitas, urls.length);
     }
-    const jpeg = await new Promise<Blob>((resolve, reject) => {
-      canvas.toBlob((blob) => blob ? resolve(blob) : reject(new Error("Falha ao gerar página do PDF.")), "image/jpeg", 0.92);
-    });
-    paginas.push(new Uint8Array(await jpeg.arrayBuffer()));
+    paginas.push(semPerda ? await paginaSemPerda(ctx, canvas.width, canvas.height) : await paginaJpeg(canvas));
   }
 
   const pdf = montarPdf(paginas, canvas.width, canvas.height);
